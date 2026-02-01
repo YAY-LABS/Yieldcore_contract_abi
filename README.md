@@ -18,6 +18,82 @@
 
 ---
 
+## Get Test USDC (Faucet)
+
+The Mock USDC contract allows **anyone to mint** tokens for testing. No faucet approval needed!
+
+### Using Foundry (cast)
+
+```bash
+# Mint 10,000 USDC to your address
+cast send 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 \
+  "mint(address,uint256)" \
+  0xYourAddress \
+  10000000000 \
+  --private-key $PRIVATE_KEY \
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+
+# Check your balance
+cast call 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 \
+  "balanceOf(address)" \
+  0xYourAddress \
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+```
+
+### Using ethers.js
+
+```typescript
+const USDC_ADDRESS = '0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7';
+
+// MockERC20 has a public mint function
+const mockUsdcAbi = [
+  'function mint(address to, uint256 amount) external',
+  'function balanceOf(address) view returns (uint256)'
+];
+
+const usdc = new ethers.Contract(USDC_ADDRESS, mockUsdcAbi, signer);
+
+// Mint 10,000 USDC (6 decimals)
+const amount = ethers.parseUnits('10000', 6);
+await usdc.mint(signer.address, amount);
+
+// Check balance
+const balance = await usdc.balanceOf(signer.address);
+console.log('Balance:', ethers.formatUnits(balance, 6), 'USDC');
+```
+
+### Using web3.py
+
+```python
+USDC_ADDRESS = '0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7'
+
+mock_usdc_abi = [
+    {
+        "inputs": [{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}],
+        "name": "mint",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]
+
+usdc = w3.eth.contract(address=USDC_ADDRESS, abi=mock_usdc_abi)
+
+# Mint 10,000 USDC
+amount = 10000 * 10**6  # 6 decimals
+tx = usdc.functions.mint(your_address, amount).build_transaction({
+    'from': your_address,
+    'nonce': w3.eth.get_transaction_count(your_address),
+    'gas': 100000,
+})
+signed = w3.eth.account.sign_transaction(tx, private_key)
+tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
+```
+
+> **Tip**: USDC uses 6 decimals. 1 USDC = 1,000,000 (1e6)
+
+---
+
 ## Quick Start: How to Deposit
 
 ### Step 1: Check Vault Status

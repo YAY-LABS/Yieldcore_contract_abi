@@ -1,0 +1,281 @@
+# Yieldcore RWA Vault - Integration Guide
+
+> **Version**: v2_without_proxy
+> **Network**: Sepolia Testnet (Chain ID: 11155111)
+> **Last Updated**: 2026-02-02
+
+---
+
+## Test Vault (Sepolia)
+
+| Contract | Address |
+|----------|---------|
+| **SuperVault (Test)** | `0x90facD5C5b8b73567aCF49d6337805E762297c04` |
+| USDC (Mock) | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
+| VaultRegistry | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |
+
+> **Note**: This is a test vault on Sepolia. USDC is a mock token for testing purposes.
+
+---
+
+## Quick Start: How to Deposit
+
+### Step 1: Check Vault Status
+
+Before depositing, verify the vault is in **Collecting** phase and collection has started:
+
+```solidity
+// Check current phase (0 = Collecting, 1 = Active, 2 = Matured, 3 = Defaulted)
+uint8 phase = vault.currentPhase();
+require(phase == 0, "Vault not collecting");
+
+// Check if collection has started (0 = immediate deposit allowed)
+uint256 collectionStart = vault.collectionStartTime();
+require(collectionStart == 0 || block.timestamp >= collectionStart, "Collection not started");
+
+// Check if collection hasn't ended
+uint256 collectionEnd = vault.collectionEndTime();
+require(block.timestamp < collectionEnd, "Collection ended");
+```
+
+### Step 2: Check Your Eligibility
+
+```solidity
+// Check whitelist (if enabled)
+bool whitelistEnabled = vault.whitelistEnabled();
+if (whitelistEnabled) {
+    require(vault.isWhitelisted(msg.sender), "Not whitelisted");
+}
+
+// Check how much you can deposit
+uint256 maxDeposit = vault.maxDeposit(msg.sender);
+```
+
+### Step 3: Approve USDC
+
+```solidity
+// Approve vault to spend your USDC
+IERC20(usdcAddress).approve(vaultAddress, depositAmount);
+```
+
+### Step 4: Deposit
+
+```solidity
+// Deposit USDC and receive vault shares
+// assets: amount of USDC (6 decimals, e.g., 1000 USDC = 1000000000)
+// receiver: address to receive the shares (usually msg.sender)
+uint256 shares = vault.deposit(assets, receiver);
+```
+
+---
+
+## Vault Phases
+
+| Phase | Value | Description |
+|-------|-------|-------------|
+| Collecting | 0 | Accepting deposits. Collection period active. |
+| Active | 1 | Funds deployed. Monthly interest accrues. |
+| Matured | 2 | Term ended. Principal + interest withdrawable. |
+| Defaulted | 3 | Loan defaulted. Partial recovery possible. |
+
+---
+
+## Key Read Functions
+
+### Vault Configuration
+
+```solidity
+// Basic info
+string name()                    // Vault name (e.g., "SuperVault Q1 2026")
+string symbol()                  // Vault symbol (e.g., "ycRWA-SV1")
+address asset()                  // Underlying asset (USDC address)
+
+// Timing
+uint256 collectionStartTime()    // When deposits open (0 = immediate)
+uint256 collectionEndTime()      // When collection ends
+uint256 maturityTime()           // When term ends
+uint256 termDuration()           // Duration in seconds
+
+// Capacity & Limits
+uint256 maxCapacity()            // Maximum total deposits
+uint256 totalAssets()            // Current total deposits
+uint256 minDeposit()             // Minimum deposit amount
+uint256 fixedAPY()               // APY in basis points (1800 = 18%)
+```
+
+### User Position
+
+```solidity
+// Get your position
+(uint256 shares, uint256 principal, uint256 lastClaimMonth, uint256 depositTime)
+    = vault.getDepositInfo(userAddress);
+
+// Get detailed share info (hybrid system)
+(uint256 shares, uint256 grossValue, uint256 claimedInterest, uint256 netValue, uint256 lastClaimMonth)
+    = vault.getShareInfo(userAddress);
+
+// Get pending interest to claim
+uint256 pendingInterest = vault.getPendingInterest(userAddress);
+
+// Get how many months of interest are claimable
+uint256 claimableMonths = vault.getClaimableMonths(userAddress);
+```
+
+### Bulk Status Check
+
+```solidity
+// Get vault status in one call
+(uint8 phase, uint256 totalAssets, uint256 totalDeployed, uint256 availableBalance, uint256 totalInterestPaid)
+    = vault.getVaultStatus();
+
+// Get vault config in one call
+(uint256 collectionEndTime, uint256 interestStartTime, uint256 maturityTime, uint256 termDuration,
+ uint256 fixedAPY, uint256 minDeposit, uint256 maxCapacity)
+    = vault.getVaultConfig();
+```
+
+---
+
+## Write Functions
+
+### Deposit (Collecting Phase Only)
+
+```solidity
+// Standard ERC-4626 deposit
+// Returns: shares minted to receiver
+function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+
+// Example: Deposit 1000 USDC
+uint256 shares = vault.deposit(1000 * 1e6, msg.sender);
+```
+
+### Claim Interest (Active/Matured Phase)
+
+```solidity
+// Claim all available monthly interest
+function claimInterest() external returns (uint256 claimed);
+
+// Claim single month's interest
+function claimSingleMonth() external;
+```
+
+### Withdraw (Matured Phase Only)
+
+```solidity
+// Withdraw by specifying asset amount
+function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
+
+// Withdraw by specifying share amount (redeem)
+function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
+```
+
+---
+
+## Events
+
+```solidity
+event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
+event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
+event InterestClaimed(address indexed user, uint256 amount, uint256 month);
+event PhaseChanged(uint8 oldPhase, uint8 newPhase);
+```
+
+---
+
+## Code Examples
+
+### JavaScript/TypeScript (ethers.js v6)
+
+```typescript
+import { ethers } from 'ethers';
+import vaultAbi from './RWAVault.json';
+import erc20Abi from './ERC20.json';
+
+const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+const signer = new ethers.Wallet(PRIVATE_KEY, provider);
+
+const VAULT_ADDRESS = '0x90facD5C5b8b73567aCF49d6337805E762297c04';
+const USDC_ADDRESS = '0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7';
+
+const vault = new ethers.Contract(VAULT_ADDRESS, vaultAbi, signer);
+const usdc = new ethers.Contract(USDC_ADDRESS, erc20Abi, signer);
+
+// Check vault status
+const phase = await vault.currentPhase();
+console.log('Phase:', phase); // 0 = Collecting
+
+// Deposit 100 USDC
+const amount = ethers.parseUnits('100', 6); // USDC has 6 decimals
+
+// Step 1: Approve
+await usdc.approve(VAULT_ADDRESS, amount);
+
+// Step 2: Deposit
+const tx = await vault.deposit(amount, signer.address);
+await tx.wait();
+console.log('Deposited!', tx.hash);
+```
+
+### Python (web3.py)
+
+```python
+from web3 import Web3
+import json
+
+w3 = Web3(Web3.HTTPProvider('https://ethereum-sepolia-rpc.publicnode.com'))
+
+VAULT_ADDRESS = '0x90facD5C5b8b73567aCF49d6337805E762297c04'
+USDC_ADDRESS = '0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7'
+
+with open('RWAVault.json') as f:
+    vault_abi = json.load(f)
+with open('ERC20.json') as f:
+    erc20_abi = json.load(f)
+
+vault = w3.eth.contract(address=VAULT_ADDRESS, abi=vault_abi)
+usdc = w3.eth.contract(address=USDC_ADDRESS, abi=erc20_abi)
+
+# Check vault status
+phase = vault.functions.currentPhase().call()
+print(f'Phase: {phase}')  # 0 = Collecting
+
+# Get max deposit
+max_deposit = vault.functions.maxDeposit(your_address).call()
+print(f'Max deposit: {max_deposit / 1e6} USDC')
+```
+
+### Foundry (cast)
+
+```bash
+# Check vault phase
+cast call 0x90facD5C5b8b73567aCF49d6337805E762297c04 "currentPhase()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+
+# Check collection start time
+cast call 0x90facD5C5b8b73567aCF49d6337805E762297c04 "collectionStartTime()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+
+# Check max deposit for address
+cast call 0x90facD5C5b8b73567aCF49d6337805E762297c04 "maxDeposit(address)" 0xYourAddress --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+
+# Approve USDC (requires private key)
+cast send 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 "approve(address,uint256)" 0x90facD5C5b8b73567aCF49d6337805E762297c04 1000000000 --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+
+# Deposit 1000 USDC
+cast send 0x90facD5C5b8b73567aCF49d6337805E762297c04 "deposit(uint256,address)" 1000000000 0xYourAddress --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+```
+
+---
+
+## Files in This Repository
+
+| File | Description |
+|------|-------------|
+| `RWAVault.json` | Full Vault ABI (all functions) |
+| `RWAVault.minimal.json` | Minimal ABI (deposit functions only) |
+| `ERC20.json` | ERC-20 ABI for USDC approval |
+| `README.md` | This documentation |
+
+---
+
+## Support
+
+For questions or issues, please contact the Yieldcore team.

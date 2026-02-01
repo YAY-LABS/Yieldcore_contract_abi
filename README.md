@@ -3,6 +3,29 @@
 > **Version**: v2_without_proxy
 > **Network**: Sepolia Testnet (Chain ID: 11155111)
 > **Last Updated**: 2026-02-02
+>
+> 📖 **[Architecture Guide](./ARCHITECTURE.md)** - Detailed contract structure and lifecycle
+
+---
+
+## ⚠️ IMPORTANT: Protect Your Share Tokens
+
+This vault uses the **ERC-4626** standard. When you deposit USDC, you receive **share tokens**.
+
+| ⚠️ Warning | |
+|------------|---|
+| **Your shares = Your money** | Shares represent your principal + interest |
+| **Do NOT transfer shares** | You will lose access to your funds |
+| **Do NOT approve untrusted contracts** | They can steal your shares |
+| **Keep shares safe** | Lost shares = Lost funds (unrecoverable) |
+
+```solidity
+// Check your shares anytime
+uint256 myShares = vault.balanceOf(myWallet);
+(, uint256 grossValue, , uint256 netValue, ) = vault.getShareInfo(myWallet);
+```
+
+> See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed explanation of the share token model.
 
 ---
 
@@ -504,10 +527,11 @@ uint256 maxDeposit = vault.maxDeposit(userAddress);
 
 | File | Description |
 |------|-------------|
+| `README.md` | Quick start guide and code examples |
+| `ARCHITECTURE.md` | **Contract structure, lifecycle, and share token model** |
 | `RWAVault.json` | Full Vault ABI (all functions) |
 | `RWAVault.minimal.json` | Minimal ABI (deposit functions only) |
-| `ERC20.json` | ERC-20 ABI for USDC approval |
-| `README.md` | This documentation |
+| `ERC20.json` | ERC-20 ABI for USDC approval + mint |
 
 ---
 

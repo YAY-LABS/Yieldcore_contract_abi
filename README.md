@@ -420,6 +420,86 @@ vault.redeem(shares, myWallet, myWallet);    // Redeem all shares
 
 ---
 
+## Whitelist & Access Control
+
+### How Whitelist Works
+
+The vault checks the **`receiver`** address, NOT `msg.sender`:
+
+```solidity
+// Inside deposit function:
+if (whitelistEnabled && !_whitelist[receiver]) revert NotWhitelisted();
+```
+
+### What This Means for Contract Integration
+
+| Scenario | Whitelist Required? |
+|----------|---------------------|
+| User deposits directly from wallet | User must be whitelisted |
+| Contract deposits for user (`receiver` = user) | **User** must be whitelisted (not the contract) |
+| Contract deposits for itself (`receiver` = contract) | Contract must be whitelisted |
+
+**Example:**
+```solidity
+// Your contract calls:
+vault.deposit(1000e6, userWallet);
+
+// Whitelist check: Is userWallet whitelisted?
+// ✅ If yes → success
+// ❌ If no → revert NotWhitelisted()
+
+// Your contract address (msg.sender) does NOT need to be whitelisted
+```
+
+### Why This Design?
+
+This prevents whitelist bypass attacks:
+
+```
+❌ If whitelist checked msg.sender:
+   - Whitelist one contract
+   - Anyone can deposit through that contract
+   - Whitelist becomes meaningless
+
+✅ Checking receiver (current design):
+   - Each user must be individually whitelisted
+   - Cannot bypass via intermediate contracts
+   - Proper access control maintained
+```
+
+### Allocated Cap (Special Allocation)
+
+Users with allocated cap **bypass whitelist entirely**:
+
+```solidity
+// Admin grants allocation to a user
+vault.setAllocation(userAddress, 50000e6);  // 50,000 USDC allocation
+
+// This user can now deposit without being on whitelist
+// They can deposit up to their allocated amount
+```
+
+Check allocation status:
+```solidity
+uint256 allocation = vault.getAllocatedCap(userAddress);      // Total allocation
+uint256 remaining = vault.getRemainingAllocation(userAddress); // Remaining amount
+```
+
+### Whitelist Check Functions
+
+```solidity
+// Check if whitelist is enabled
+bool enabled = vault.whitelistEnabled();
+
+// Check if address is whitelisted
+bool isWL = vault.isWhitelisted(userAddress);
+
+// Check max deposit (returns 0 if not whitelisted when required)
+uint256 maxDeposit = vault.maxDeposit(userAddress);
+```
+
+---
+
 ## Files in This Repository
 
 | File | Description |

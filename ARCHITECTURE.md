@@ -246,6 +246,29 @@ vault.claimInterest();
 vault.claimSingleMonth();
 ```
 
+### ⚠️ IMPORTANT: Direct Wallet Call Required
+
+**Claim functions use `msg.sender` - NOT a receiver parameter!**
+
+```solidity
+function claimInterest() external {
+    DepositInfo storage info = _depositInfos[msg.sender];  // ← Looks up msg.sender
+    // ...
+    IERC20(asset()).safeTransfer(msg.sender, interestAmount);  // ← Sends to msg.sender
+}
+```
+
+| ❌ Does NOT Work | ✅ Works |
+|------------------|----------|
+| Contract calls `claimInterest()` for user | User calls `claimInterest()` directly from wallet |
+| Bot/relayer calls on behalf of user | User signs and submits transaction themselves |
+
+**Why?**
+- Security: Prevents contracts from stealing user interest
+- Simplicity: No approval/delegation mechanism needed
+- The `deposit()` function has `receiver` parameter for flexibility
+- But `claim/withdraw` are intentionally restricted to direct calls
+
 ---
 
 ## Access Control

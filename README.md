@@ -432,7 +432,7 @@ contract YieldcoreIntegration {
                                  User Wallet directly
 ```
 
-**After Deposit - User Can Directly:**
+**After Deposit - User MUST Call Directly:**
 
 ```solidity
 // User calls these directly from their wallet (no intermediate contract needed)
@@ -440,6 +440,24 @@ vault.claimInterest();                    // Claim monthly interest
 vault.withdraw(amount, myWallet, myWallet);  // Withdraw principal (after maturity)
 vault.redeem(shares, myWallet, myWallet);    // Redeem all shares
 ```
+
+> ⚠️ **IMPORTANT: Claim & Withdraw use `msg.sender`**
+>
+> Unlike `deposit()` which has a `receiver` parameter, the following functions use `msg.sender` to identify the user:
+>
+> | Function | Lookup | Transfer To |
+> |----------|--------|-------------|
+> | `claimInterest()` | `_depositInfos[msg.sender]` | `msg.sender` |
+> | `claimSingleMonth()` | `_depositInfos[msg.sender]` | `msg.sender` |
+> | `withdraw()` | `owner` param (must be `msg.sender` or approved) | `receiver` param |
+> | `redeem()` | `owner` param (must be `msg.sender` or approved) | `receiver` param |
+>
+> **This means:**
+> - ❌ A contract CANNOT claim interest on behalf of a user
+> - ❌ A contract CANNOT withdraw on behalf of a user (unless approved)
+> - ✅ User MUST call these functions directly from their wallet
+>
+> **Why?** This is a security feature - prevents malicious contracts from stealing user funds.
 
 ---
 

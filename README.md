@@ -339,6 +339,85 @@ cast send 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 "approve(address,uint256)" 
 cast send 0x90facD5C5b8b73567aCF49d6337805E762297c04 "deposit(uint256,address)" 1000000000 0xYourAddress --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 ```
 
+### Solidity (Contract-to-Contract Integration)
+
+If you're calling the Yieldcore vault from your own smart contract:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+interface IYieldcoreVault {
+    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+    function currentPhase() external view returns (uint8);
+    function maxDeposit(address receiver) external view returns (uint256);
+}
+
+contract YieldcoreIntegration {
+    IYieldcoreVault public immutable vault;
+    IERC20 public immutable usdc;
+
+    constructor(address _vault, address _usdc) {
+        vault = IYieldcoreVault(_vault);
+        usdc = IERC20(_usdc);
+    }
+
+    /// @notice Deposit USDC to Yieldcore vault on behalf of a user
+    /// @dev User must approve this contract to spend their USDC first
+    /// @param amount Amount of USDC to deposit (6 decimals)
+    /// @param user The user who will receive the vault shares
+    function depositFor(uint256 amount, address user) external {
+        // 1. Transfer USDC from user to this contract
+        usdc.transferFrom(msg.sender, address(this), amount);
+
+        // 2. Approve vault to spend USDC
+        usdc.approve(address(vault), amount);
+
+        // 3. Deposit to vault with user as receiver
+        //    Shares are minted directly to user's wallet!
+        vault.deposit(amount, user);
+    }
+
+    /// @notice Check if vault is accepting deposits
+    function canDeposit() external view returns (bool) {
+        return vault.currentPhase() == 0; // 0 = Collecting
+    }
+}
+```
+
+**Important Notes:**
+
+| Aspect | Explanation |
+|--------|-------------|
+| `msg.sender` in vault | Your contract address (not the original user) |
+| `receiver` parameter | Specifies who gets the shares → set to user's wallet |
+| After deposit | User owns shares directly, can claim interest & withdraw themselves |
+
+**Flow Diagram:**
+
+```
+┌──────────────┐      ┌──────────────────┐      ┌─────────────────┐
+│  User Wallet │──1──>│  Your Contract   │──3──>│ Yieldcore Vault │
+│              │      │                  │      │                 │
+│  (has USDC)  │      │ depositFor()     │      │ deposit(amount, │
+│              │      │                  │      │   userWallet)   │
+└──────────────┘      └──────────────────┘      └────────┬────────┘
+                                                         │
+                              4. Shares minted to ───────┘
+                                 User Wallet directly
+```
+
+**After Deposit - User Can Directly:**
+
+```solidity
+// User calls these directly from their wallet (no intermediate contract needed)
+vault.claimInterest();                    // Claim monthly interest
+vault.withdraw(amount, myWallet, myWallet);  // Withdraw principal (after maturity)
+vault.redeem(shares, myWallet, myWallet);    // Redeem all shares
+```
+
 ---
 
 ## Files in This Repository

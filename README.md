@@ -2,7 +2,7 @@
 
 > **Version**: v2_without_proxy
 > **Network**: Sepolia Testnet (Chain ID: 11155111)
-> **Last Updated**: 2026-02-02
+> **Last Updated**: 2026-02-03
 >
 > 📖 **[Architecture Guide](./ARCHITECTURE.md)** - Detailed contract structure and lifecycle
 
@@ -33,11 +33,14 @@ uint256 myShares = vault.balanceOf(myWallet);
 
 | Contract | Address |
 |----------|---------|
-| **SuperVault (Test)** | `0x90facD5C5b8b73567aCF49d6337805E762297c04` |
+| **Test Vault (Whitelist)** | `0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38` |
 | USDC (Mock) | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
+| VaultFactory | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
 | VaultRegistry | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |
+| PoolManager | `0xC0E1759038f01fB0E097DB5377b0b5BA8742A41D` |
 
 > **Note**: This is a test vault on Sepolia. USDC is a mock token for testing purposes.
+> **Collection Period**: Feb 4, 2026 11:00 AM ~ 3:00 PM KST
 
 ---
 

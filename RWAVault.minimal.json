@@ -29,6 +29,13 @@
   },
   {
     "inputs": [],
+    "name": "collectionStartTime",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "collectionEndTime",
     "outputs": [{ "name": "", "type": "uint256" }],
     "stateMutability": "view",

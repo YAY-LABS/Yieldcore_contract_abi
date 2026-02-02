@@ -239,6 +239,19 @@
   },
   {
     "type": "function",
+    "name": "collectionStartTime",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "convertToAssets",
     "inputs": [
       {
@@ -949,6 +962,11 @@
         "name": "symbol_",
         "type": "string",
         "internalType": "string"
+      },
+      {
+        "name": "collectionStartTime_",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "collectionEndTime_",
@@ -2636,6 +2654,11 @@
   {
     "type": "error",
     "name": "CollectionNotEnded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CollectionNotStarted",
     "inputs": []
   },
   {

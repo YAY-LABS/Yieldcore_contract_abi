@@ -32,14 +32,6 @@ contract RWAVault is
 {
     using SafeERC20 for IERC20;
 
-    // ============ Enums ============
-
-    /// @notice Interest calculation mode
-    enum InterestMode { Fixed, BufferAdjusted, Dynamic }
-
-    /// @notice Principal protection level
-    enum PrincipalProtection { Full, Partial, None }
-
     // ============ Structs ============
 
     /// @notice User deposit information for interest tracking
@@ -53,22 +45,10 @@ contract RWAVault is
     /// @notice Capital deployment record
     struct DeploymentRecord {
         uint256 deployedUSD;        // Deployed amount in USD
-        uint256 deploymentRate;     // KRW/USD rate at deployment (8 decimals)
-        uint256 deployedKRW;        // Calculated KRW amount
         uint256 deploymentTime;     // Deployment timestamp
         uint256 returnedUSD;        // Returned amount in USD
-        uint256 returnRate;         // KRW/USD rate at return (8 decimals)
-        uint256 returnedKRW;        // Returned KRW amount
         uint256 returnTime;         // Return timestamp
         bool settled;               // Whether this deployment is settled
-    }
-
-    /// @notice Vault settings for interest and principal modes
-    struct VaultSettings {
-        InterestMode interestMode;              // Interest calculation mode
-        PrincipalProtection principalProtection; // Principal protection level
-        uint256 bufferTargetRatio;              // Target buffer ratio (basis points)
-        uint256 maxFxLossRatio;                 // Max FX loss before principal impact (basis points)
     }
 
     /// @notice Pending deployment for timelock mechanism
@@ -93,10 +73,7 @@ contract RWAVault is
     /// @notice Interest start time (when interest begins accruing)
     uint256 public interestStartTime;
 
-    /// @notice Maturity time
-    uint256 public maturityTime;
-
-    /// @notice Term duration in seconds
+    /// @notice Term duration in seconds (informational, for VaultRegistry categorization)
     uint256 public termDuration;
 
     /// @notice Fixed APY in basis points
@@ -128,23 +105,11 @@ contract RWAVault is
     /// @notice Total principal deposited (for accurate interest calculation)
     uint256 public totalPrincipal;
 
-    /// @notice Price oracle address (0 = manual input)
-    address public priceOracle;
-
-    /// @notice Buffer balance for FX gains/losses
-    uint256 public bufferBalance;
-
-    /// @notice Vault settings
-    VaultSettings public settings;
-
     /// @notice Deployment history for FX tracking
     DeploymentRecord[] public deploymentHistory;
 
     /// @notice Current deployment index (for tracking active deployment)
     uint256 public currentDeploymentIndex;
-
-    /// @notice Total FX gain/loss (positive = gain, stored separately for clarity)
-    int256 public totalFxGainLoss;
 
     /// @notice Interest period end dates (actual end date of each month's interest period)
     uint256[] public interestPeriodEndDates;
@@ -226,8 +191,8 @@ contract RWAVault is
     /// @notice Initializes a clone vault
     /// @param name_ The vault name
     /// @param symbol_ The vault symbol
-    /// @param collectionStartTime_ Collection phase start time (when deposits allowed)
     /// @param collectionEndTime_ Collection phase end time
+    /// @param collectionStartTime_ Collection start time (when deposits allowed)
     /// @param interestStartTime_ Interest start time
     /// @param termDuration_ Term duration in seconds
     /// @param fixedAPY_ Fixed APY in basis points
@@ -266,21 +231,12 @@ contract RWAVault is
         collectionEndTime = collectionEndTime_;
         interestStartTime = interestStartTime_;
         termDuration = termDuration_;
-        maturityTime = interestStartTime_ + termDuration_;
         fixedAPY = fixedAPY_;
         minDeposit = minDeposit_;
         maxCapacity = maxCapacity_;
         poolManager = poolManager_;
         currentPhase = Phase.Collecting;
         active = true;
-
-        // Default settings: fixed APY, 100% principal protection
-        settings = VaultSettings({
-            interestMode: InterestMode.Fixed,
-            principalProtection: PrincipalProtection.Full,
-            bufferTargetRatio: 1000,  // 10%
-            maxFxLossRatio: 500       // 5%
-        });
 
         // Default deployment delay: 1 hour
         deploymentDelay = 1 hours;
@@ -300,6 +256,20 @@ contract RWAVault is
     /// @dev Overrides ERC20 to support clone pattern
     function symbol() public view override(ERC20, IERC20Metadata) returns (string memory) {
         return bytes(_vaultSymbol).length > 0 ? _vaultSymbol : super.symbol();
+    }
+
+    /// @notice Returns the maturity time (derived from interestPeriodEndDates)
+    /// @dev Returns last element of interestPeriodEndDates, or fallback calculation if not set
+    function maturityTime() public view returns (uint256) {
+        return _getMaturityTime();
+    }
+
+    /// @notice Internal helper to get maturity time with fallback
+    function _getMaturityTime() internal view returns (uint256) {
+        if (interestPeriodEndDates.length > 0) {
+            return interestPeriodEndDates[interestPeriodEndDates.length - 1];
+        }
+        return interestStartTime + termDuration;
     }
 
     // ============ Modifiers ============
@@ -357,10 +327,11 @@ contract RWAVault is
 
         // Determine end time based on phase
         uint256 endTime = block.timestamp;
+        uint256 _maturityTime = _getMaturityTime();
         if (currentPhase == Phase.Defaulted && defaultTime > 0) {
             endTime = defaultTime;
-        } else if (endTime > maturityTime) {
-            endTime = maturityTime;
+        } else if (endTime > _maturityTime) {
+            endTime = _maturityTime;
         }
 
         // Monthly interest = totalPrincipal * APY / 12 / 10000
@@ -397,10 +368,11 @@ contract RWAVault is
     /// @notice Fallback simple interest calculation (when period end dates not set)
     function _calculateSimpleAccruedInterest() internal view returns (uint256) {
         uint256 endTime = block.timestamp;
+        uint256 _maturityTime = _getMaturityTime();
         if (currentPhase == Phase.Defaulted && defaultTime > 0) {
             endTime = defaultTime;
-        } else if (endTime > maturityTime) {
-            endTime = maturityTime;
+        } else if (endTime > _maturityTime) {
+            endTime = _maturityTime;
         }
 
         uint256 elapsed = endTime - interestStartTime;
@@ -418,7 +390,6 @@ contract RWAVault is
         if (currentPhase != Phase.Collecting) return 0;
         if (!active) return 0;
         if (paused()) return 0;
-        if (collectionStartTime > 0 && block.timestamp < collectionStartTime) return 0;
         if (block.timestamp >= collectionEndTime) return 0;
 
         uint256 userDeposited = _depositInfos[receiver].principal;
@@ -621,7 +592,6 @@ contract RWAVault is
         // Pre-checks using estimated assets (for early revert on obvious failures)
         uint256 estimatedAssets = previewMint(shares);
         if (estimatedAssets < minDeposit) revert RWAErrors.MinDepositNotMet();
-        if (collectionStartTime > 0 && block.timestamp < collectionStartTime) revert RWAErrors.CollectionNotStarted();
         if (block.timestamp >= collectionEndTime) revert RWAErrors.CollectionEnded();
 
         uint256 userAllocation = _allocatedCap[receiver];
@@ -1053,7 +1023,7 @@ contract RWAVault is
     /// @notice Transition to Matured phase
     function matureVault() external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (currentPhase != Phase.Active) revert RWAErrors.InvalidPhase();
-        if (block.timestamp < maturityTime) revert RWAErrors.NotMatured();
+        if (block.timestamp < _getMaturityTime()) revert RWAErrors.NotMatured();
 
         Phase oldPhase = currentPhase;
         currentPhase = Phase.Matured;
@@ -1063,7 +1033,7 @@ contract RWAVault is
 
     /// @notice Trigger vault default (early termination due to FX loss or other reasons)
     /// @dev Admin manually triggers when conditions warrant early termination
-    function triggerDefault() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function triggerDefault() external onlyPoolManager {
         if (currentPhase != Phase.Active) revert RWAErrors.InvalidPhase();
 
         Phase oldPhase = currentPhase;
@@ -1075,101 +1045,21 @@ contract RWAVault is
     }
 
     /// @notice Update interest start time (only before Active phase)
+    /// @dev After changing this, you must call setInterestPeriodEndDates() with updated dates
     function setInterestStartTime(uint256 newTime) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (currentPhase != Phase.Collecting) revert RWAErrors.InvalidPhase();
         if (newTime < collectionEndTime) revert RWAErrors.InvalidAmount();
 
         interestStartTime = newTime;
-        maturityTime = newTime + termDuration;
     }
 
     // ============ Pool Manager Functions ============
-
-    /// @notice Deploys capital to external recipient (called by PoolManager)
-    /// @dev Enforces minimum reserve for interest payments (2 months worth)
-    function deployCapital(uint256 amount, address recipient)
-        external
-        nonReentrant
-        whenNotPaused
-        onlyPoolManager
-    {
-        // Can only deploy when cap is reached or collection time ended
-        bool capReached = totalAssets() >= maxCapacity;
-        bool timeEnded = block.timestamp >= collectionEndTime;
-        if (!capReached && !timeEnded) revert RWAErrors.CollectionNotEnded();
-
-        if (amount == 0) revert RWAErrors.ZeroAmount();
-        if (recipient == address(0)) revert RWAErrors.ZeroAddress();
-
-        uint256 currentBalance = IERC20(asset()).balanceOf(address(this));
-        if (amount > currentBalance) revert RWAErrors.InsufficientLiquidity();
-
-        // Calculate minimum reserve (2 months of interest for all principal)
-        uint256 monthlyInterest = (totalPrincipal * fixedAPY) / (RWAConstants.MONTHS_PER_YEAR * RWAConstants.BASIS_POINTS);
-        uint256 minReserve = monthlyInterest * RWAConstants.MIN_INTEREST_RESERVE_MONTHS;
-
-        // Ensure sufficient balance remains after deployment
-        if (currentBalance - amount < minReserve) revert RWAErrors.InsufficientLiquidity();
-
-        totalDeployed += amount;
-        IERC20(asset()).safeTransfer(recipient, amount);
-
-        emit CapitalDeployed(amount, recipient);
-    }
-
-    /// @notice Deploys capital with exchange rate recording     /// @param amount Amount to deploy in USD
-    /// @param recipient Recipient address
-    /// @param exchangeRate KRW/USD rate (8 decimals, e.g., 130000000000 = 1300 KRW/USD)
-    function deployCapitalWithRate(
-        uint256 amount,
-        address recipient,
-        uint256 exchangeRate
-    ) external nonReentrant whenNotPaused onlyPoolManager {
-        // Can only deploy when cap is reached or collection time ended
-        bool capReached = totalAssets() >= maxCapacity;
-        bool timeEnded = block.timestamp >= collectionEndTime;
-        if (!capReached && !timeEnded) revert RWAErrors.CollectionNotEnded();
-
-        if (amount == 0) revert RWAErrors.ZeroAmount();
-        if (recipient == address(0)) revert RWAErrors.ZeroAddress();
-
-        uint256 currentBalance = IERC20(asset()).balanceOf(address(this));
-        if (amount > currentBalance) revert RWAErrors.InsufficientLiquidity();
-
-        // Calculate minimum reserve (2 months of interest for all principal)
-        uint256 monthlyInterest = (totalPrincipal * fixedAPY) / (RWAConstants.MONTHS_PER_YEAR * RWAConstants.BASIS_POINTS);
-        uint256 minReserve = monthlyInterest * RWAConstants.MIN_INTEREST_RESERVE_MONTHS;
-
-        // Ensure sufficient balance remains after deployment
-        if (currentBalance - amount < minReserve) revert RWAErrors.InsufficientLiquidity();
-
-        totalDeployed += amount;
-
-        // Record exchange rate
-        uint256 deployedKRW = (amount * exchangeRate) / RWAConstants.EXCHANGE_RATE_PRECISION;
-        deploymentHistory.push(DeploymentRecord({
-            deployedUSD: amount,
-            deploymentRate: exchangeRate,
-            deployedKRW: deployedKRW,
-            deploymentTime: block.timestamp,
-            returnedUSD: 0,
-            returnRate: 0,
-            returnedKRW: 0,
-            returnTime: 0,
-            settled: false
-        }));
-        currentDeploymentIndex = deploymentHistory.length - 1;
-
-        IERC20(asset()).safeTransfer(recipient, amount);
-
-        emit CapitalDeployed(amount, recipient);
-        emit DeploymentRecorded(currentDeploymentIndex, amount, exchangeRate, deployedKRW);
-    }
 
     // ============ Deployment Timelock Functions ============
 
     /// @notice Announces a capital deployment (starts timelock)
     /// @dev Must wait deploymentDelay before executing
+    /// @dev Can be called anytime (including during collection phase)
     /// @param amount Amount to deploy
     /// @param recipient Recipient address
     function announceDeployCapital(uint256 amount, address recipient)
@@ -1184,13 +1074,6 @@ contract RWAVault is
 
         uint256 currentBalance = IERC20(asset()).balanceOf(address(this));
         if (amount > currentBalance) revert RWAErrors.InsufficientLiquidity();
-
-        // Calculate minimum reserve (2 months of interest for all principal)
-        uint256 monthlyInterest = (totalPrincipal * fixedAPY) / (RWAConstants.MONTHS_PER_YEAR * RWAConstants.BASIS_POINTS);
-        uint256 minReserve = monthlyInterest * RWAConstants.MIN_INTEREST_RESERVE_MONTHS;
-
-        // Ensure sufficient balance would remain after deployment
-        if (currentBalance - amount < minReserve) revert RWAErrors.InsufficientLiquidity();
 
         uint256 executeTime = block.timestamp + deploymentDelay;
         uint256 deploymentId = deploymentIdCounter++;
@@ -1218,21 +1101,28 @@ contract RWAVault is
         uint256 currentBalance = IERC20(asset()).balanceOf(address(this));
         if (amount > currentBalance) revert RWAErrors.InsufficientLiquidity();
 
-        // Re-check minimum reserve
-        uint256 monthlyInterest = (totalPrincipal * fixedAPY) / (RWAConstants.MONTHS_PER_YEAR * RWAConstants.BASIS_POINTS);
-        uint256 minReserve = monthlyInterest * RWAConstants.MIN_INTEREST_RESERVE_MONTHS;
-        if (currentBalance - amount < minReserve) revert RWAErrors.InsufficientLiquidity();
-
         // Clear pending deployment
         uint256 deploymentId = deploymentIdCounter - 1;
         delete pendingDeployment;
 
         // Execute deployment
         totalDeployed += amount;
+
+        // Record deployment in history
+        deploymentHistory.push(DeploymentRecord({
+            deployedUSD: amount,
+            deploymentTime: block.timestamp,
+            returnedUSD: 0,
+            returnTime: 0,
+            settled: false
+        }));
+        currentDeploymentIndex = deploymentHistory.length - 1;
+
         IERC20(asset()).safeTransfer(recipient, amount);
 
         emit RWAEvents.DeploymentExecuted(deploymentId, amount, recipient);
         emit CapitalDeployed(amount, recipient);
+        emit DeploymentRecorded(currentDeploymentIndex, amount);
     }
 
     /// @notice Cancels a pending deployment
@@ -1274,6 +1164,7 @@ contract RWAVault is
     }
 
     /// @notice Returns capital from external deployment (called by PoolManager)
+    /// @dev Supports partial returns - multiple calls allowed until fully returned
     /// @param amount Amount to return in USD
     function returnCapital(uint256 amount) external nonReentrant whenNotPaused onlyPoolManager {
         if (amount == 0) revert RWAErrors.ZeroAmount();
@@ -1281,49 +1172,23 @@ contract RWAVault is
 
         totalDeployed -= amount;
 
-        IERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
-
-        emit CapitalReturned(amount, msg.sender);
-    }
-
-    /// @notice Returns capital with exchange rate recording     /// @param amount Amount returned in USD
-    /// @param exchangeRate KRW/USD rate at return (8 decimals)
-    /// @param deploymentIndex Index of the deployment being settled
-    function returnCapitalWithRate(
-        uint256 amount,
-        uint256 exchangeRate,
-        uint256 deploymentIndex
-    ) external nonReentrant whenNotPaused onlyPoolManager {
-        if (amount == 0) revert RWAErrors.ZeroAmount();
-        if (amount > totalDeployed) revert RWAErrors.InvalidAmount();
-        if (deploymentIndex >= deploymentHistory.length) revert RWAErrors.InvalidAmount();
-
-        DeploymentRecord storage record = deploymentHistory[deploymentIndex];
-        if (record.settled) revert RWAErrors.InvalidAmount();
-
-        totalDeployed -= amount;
-
-        // Record exchange rate and calculate P&L
-        uint256 returnedKRW = (amount * exchangeRate) / RWAConstants.EXCHANGE_RATE_PRECISION;
-        record.returnedUSD = amount;
-        record.returnRate = exchangeRate;
-        record.returnedKRW = returnedKRW;
-        record.returnTime = block.timestamp;
-        record.settled = true;
-
-        // Calculate FX P&L (KRW basis)
-        // At deployment: deployedKRW = deployedUSD * deploymentRate
-        // At return: returnedKRW = returnedUSD * returnRate
-        // If same KRW returned: expectedUSD = deployedKRW / returnRate
-        // FX P&L = returnedUSD - expectedUSD
-        int256 expectedUSD = int256((record.deployedKRW * RWAConstants.EXCHANGE_RATE_PRECISION) / exchangeRate);
-        int256 fxGainLoss = int256(amount) - expectedUSD;
-        totalFxGainLoss += fxGainLoss;
+        // Update current deployment record if exists
+        if (deploymentHistory.length > 0) {
+            DeploymentRecord storage record = deploymentHistory[currentDeploymentIndex];
+            if (!record.settled) {
+                record.returnedUSD += amount;  // Accumulate partial returns
+                record.returnTime = block.timestamp;
+                // Only mark as settled when fully returned
+                if (record.returnedUSD >= record.deployedUSD) {
+                    record.settled = true;
+                }
+                emit ReturnRecorded(currentDeploymentIndex, amount);
+            }
+        }
 
         IERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
 
         emit CapitalReturned(amount, msg.sender);
-        emit ReturnRecorded(deploymentIndex, amount, exchangeRate, returnedKRW, fxGainLoss);
     }
 
     /// @notice Deposit interest earnings into vault
@@ -1333,29 +1198,6 @@ contract RWAVault is
         IERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
 
         emit InterestDeposited(amount);
-    }
-
-    // ============ Buffer Functions ============
-
-    /// @notice Deposit to buffer
-    function depositToBuffer(uint256 amount) external nonReentrant whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (amount == 0) revert RWAErrors.ZeroAmount();
-
-        IERC20(asset()).safeTransferFrom(msg.sender, address(this), amount);
-        bufferBalance += amount;
-
-        emit BufferDeposited(amount);
-    }
-
-    /// @notice Withdraw from buffer
-    function withdrawFromBuffer(uint256 amount) external nonReentrant whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (amount == 0) revert RWAErrors.ZeroAmount();
-        if (amount > bufferBalance) revert RWAErrors.InsufficientLiquidity();
-
-        bufferBalance -= amount;
-        IERC20(asset()).safeTransfer(msg.sender, amount);
-
-        emit BufferWithdrawn(amount);
     }
 
     // ============ Admin Functions ============
@@ -1439,7 +1281,7 @@ contract RWAVault is
     /// @param startTime Timestamp when withdrawal becomes available
     function setWithdrawalStartTime(uint256 startTime) external onlyRole(DEFAULT_ADMIN_ROLE) {
         // Must be after maturityTime
-        if (startTime < maturityTime) revert RWAErrors.InvalidAmount();
+        if (startTime < _getMaturityTime()) revert RWAErrors.InvalidAmount();
 
         withdrawalStartTime = startTime;
 
@@ -1597,33 +1439,6 @@ contract RWAVault is
         active = active_;
     }
 
-    /// @notice Sets the price oracle address
-    function setPriceOracle(address oracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (oracle == address(0)) revert RWAErrors.ZeroAddress();
-        priceOracle = oracle;
-        emit PriceOracleUpdated(oracle);
-    }
-
-    /// @notice Updates vault settings
-    function updateSettings(
-        InterestMode interestMode_,
-        PrincipalProtection principalProtection_,
-        uint256 bufferTargetRatio_,
-        uint256 maxFxLossRatio_
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        // Can only change during Collecting phase (for safety)
-        if (currentPhase != Phase.Collecting) revert RWAErrors.InvalidPhase();
-
-        settings = VaultSettings({
-            interestMode: interestMode_,
-            principalProtection: principalProtection_,
-            bufferTargetRatio: bufferTargetRatio_,
-            maxFxLossRatio: maxFxLossRatio_
-        });
-
-        emit SettingsUpdated(uint8(interestMode_), uint8(principalProtection_), bufferTargetRatio_, maxFxLossRatio_);
-    }
-
     /// @notice Pauses the vault
     function pause() external onlyRole(RWAConstants.PAUSER_ROLE) {
         _pause();
@@ -1638,13 +1453,44 @@ contract RWAVault is
     /// @dev Only admin can call. Cannot recover the vault's underlying asset (USDC)
     /// @param token The token address to recover
     /// @param amount The amount to recover
-    function recoverERC20(address token, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function recoverERC20(address token, uint256 amount, address recipient) external onlyPoolManager {
         if (token == asset()) revert RWAErrors.InvalidAmount();
         if (amount == 0) revert RWAErrors.ZeroAmount();
+        if (recipient == address(0)) revert RWAErrors.ZeroAddress();
 
-        IERC20(token).safeTransfer(msg.sender, amount);
+        IERC20(token).safeTransfer(recipient, amount);
 
-        emit RWAEvents.TokenRecovered(token, msg.sender, amount);
+        emit RWAEvents.TokenRecovered(token, recipient, amount);
+    }
+
+    /// @notice Recovers remaining asset (USDC) dust after all shares are burned
+    /// @dev Only callable when totalSupply() == 0 (vault is fully emptied)
+    /// @param recipient The address to receive the dust
+    function recoverAssetDust(address recipient) external onlyPoolManager {
+        if (totalSupply() > 0) revert RWAErrors.InvalidPhase();
+        if (recipient == address(0)) revert RWAErrors.ZeroAddress();
+
+        uint256 dust = IERC20(asset()).balanceOf(address(this));
+        if (dust == 0) revert RWAErrors.ZeroAmount();
+
+        IERC20(asset()).safeTransfer(recipient, dust);
+
+        emit RWAEvents.TokenRecovered(asset(), recipient, dust);
+    }
+
+    /// @notice Recovers ETH accidentally sent to the vault
+    /// @dev Vault should never hold ETH, so this can be called anytime
+    /// @param recipient The address to receive the ETH
+    function recoverETH(address payable recipient) external onlyPoolManager {
+        if (recipient == address(0)) revert RWAErrors.ZeroAddress();
+
+        uint256 balance = address(this).balance;
+        if (balance == 0) revert RWAErrors.ZeroAmount();
+
+        (bool success, ) = recipient.call{value: balance}("");
+        require(success, "ETH transfer failed");
+
+        emit ETHRecovered(recipient, balance);
     }
 
     // ============ View Functions ============
@@ -1689,7 +1535,7 @@ contract RWAVault is
         return (
             collectionEndTime,
             interestStartTime,
-            maturityTime,
+            maturityTime(),
             termDuration,
             fixedAPY,
             minDeposit,
@@ -1700,19 +1546,11 @@ contract RWAVault is
     /// @notice Get extended vault info
     function getExtendedInfo() external view returns (
         uint256 totalPrincipal_,
-        uint256 bufferBalance_,
-        int256 totalFxGainLoss_,
-        uint256 deploymentCount,
-        InterestMode interestMode_,
-        PrincipalProtection principalProtection_
+        uint256 deploymentCount
     ) {
         return (
             totalPrincipal,
-            bufferBalance,
-            totalFxGainLoss,
-            deploymentHistory.length,
-            settings.interestMode,
-            settings.principalProtection
+            deploymentHistory.length
         );
     }
 
@@ -1741,19 +1579,16 @@ contract RWAVault is
     // ============ Events ============
 
     event LossRecorded(uint256 amount);
-    event DeploymentRecorded(uint256 indexed index, uint256 amount, uint256 rate, uint256 krwAmount);
-    event ReturnRecorded(uint256 indexed index, uint256 amount, uint256 rate, uint256 krwAmount, int256 fxGainLoss);
+    event DeploymentRecorded(uint256 indexed index, uint256 amount);
+    event ReturnRecorded(uint256 indexed index, uint256 amount);
     event InterestPeriodEndDatesSet(uint256 monthCount);
     event InterestPaymentDatesSet(uint256 monthCount);
     event InterestPaymentDateUpdated(uint256 indexed month, uint256 newDate);
     event WithdrawalStartTimeSet(uint256 startTime);
-    event BufferDeposited(uint256 amount);
-    event BufferWithdrawn(uint256 amount);
-    event PriceOracleUpdated(address indexed oracle);
-    event SettingsUpdated(uint8 interestMode, uint8 principalProtection, uint256 bufferTargetRatio, uint256 maxFxLossRatio);
     event PrincipalTransferred(address indexed from, address indexed to, uint256 principal, uint256 shares);
     event WhitelistEnabledSet(bool enabled);
     event WhitelistUpdated(address[] users, bool added);
     event UserDepositCapsSet(uint256 minPerUser, uint256 maxPerUser);
     event CapAllocated(address indexed user, uint256 amount);
+    event ETHRecovered(address indexed recipient, uint256 amount);
 }

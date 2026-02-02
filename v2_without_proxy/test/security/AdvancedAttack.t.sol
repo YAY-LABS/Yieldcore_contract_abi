@@ -78,7 +78,7 @@ contract AdvancedAttackTest is BaseTest {
 
         vm.warp(block.timestamp + 30 days);
         vm.prank(admin);
-        vault.triggerDefault();
+        poolManager.triggerDefault(address(vault));
 
         uint256 maturity = vault.maturityTime();
         uint256 totalNeeded = vault.totalAssets();
@@ -133,7 +133,7 @@ contract AdvancedAttackTest is BaseTest {
         vm.warp(block.timestamp + 34 days);
 
         vm.prank(admin);
-        vault.triggerDefault();
+        poolManager.triggerDefault(address(vault));
 
         uint256 totalNeeded = vault.totalAssets();
         uint256 currentBalance = usdc.balanceOf(address(vault));
@@ -524,7 +524,7 @@ contract AdvancedAttackTest is BaseTest {
 
         // Trigger default
         vm.prank(admin);
-        vault.triggerDefault();
+        poolManager.triggerDefault(address(vault));
 
         uint256 maturity = vault.maturityTime();
         vm.prank(admin);
@@ -747,7 +747,7 @@ contract AdvancedAttackTest is BaseTest {
 
         // Default
         vm.prank(admin);
-        vault.triggerDefault();
+        poolManager.triggerDefault(address(vault));
 
         uint256 maturity = vault.maturityTime();
         vm.prank(admin);
@@ -810,7 +810,7 @@ contract AdvancedAttackTest is BaseTest {
 
         // Default
         vm.prank(admin);
-        vault.triggerDefault();
+        poolManager.triggerDefault(address(vault));
 
         uint256 maturity = vault.maturityTime();
         vm.prank(admin);

@@ -748,10 +748,10 @@ contract ExternalAttackTest is Test {
         vault.activateVault();
         console2.log("activateVault: BLOCKED");
 
-        // Try deployCapital
+        // Try deployCapital via PoolManager (attacker has no CURATOR_ROLE)
         vm.expectRevert();
-        vault.deployCapital(1000e6, attacker);
-        console2.log("deployCapital: BLOCKED");
+        poolManager.announceDeployCapital(address(vault), 1000e6, attacker);
+        console2.log("announceDeployCapital: BLOCKED");
 
         // Try pause
         vm.expectRevert();

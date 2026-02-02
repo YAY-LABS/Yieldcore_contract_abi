@@ -385,6 +385,20 @@ contract RWAVaultSecurityTest is Test {
         vm.stopPrank();
     }
 
+    /// @notice Helper to deploy capital through PoolManager with timelock
+    function _localDeployCapital(uint256 amount, address recipient) internal {
+        vm.startPrank(admin);
+        poolManager.announceDeployCapital(address(vault), amount, recipient);
+        vm.stopPrank();
+
+        uint256 delay = vault.deploymentDelay();
+        vm.warp(block.timestamp + delay + 1);
+
+        vm.startPrank(admin);
+        poolManager.executeDeployCapital(address(vault));
+        vm.stopPrank();
+    }
+
     // ============================================================================
     // SECTION 1: FUND LOSS PREVENTION TESTS
     // ============================================================================
@@ -433,8 +447,8 @@ contract RWAVaultSecurityTest is Test {
         assertGe(received, 100_000e6 - 1e6, "User should receive at least principal");
     }
 
-    /// @notice Test interest claim when vault has no USDC liquidity
-    function test_FundSafety_NoLiquidityForInterest() public {
+    /// @notice Test interest claim when vault has limited USDC liquidity
+    function test_FundSafety_LimitedLiquidityForInterest() public {
         vm.startPrank(user1);
         usdc.approve(address(vault), 100_000e6);
         vault.deposit(100_000e6, user1);
@@ -442,25 +456,25 @@ contract RWAVaultSecurityTest is Test {
 
         _activateVault();
 
-        // Deploy capital leaving only minimum reserve
+        // Deploy most capital, leaving some for interest payments
         uint256 monthlyInterest = (100_000e6 * 1500) / (12 * 10_000);
-        uint256 minReserve = monthlyInterest * 2;
-        uint256 deployable = 100_000e6 - minReserve;
+        uint256 keepForInterest = monthlyInterest * 2; // Keep 2 months worth
+        uint256 deployable = 100_000e6 - keepForInterest;
 
-        vm.prank(address(poolManager));
-        vault.deployCapital(deployable, treasury);
+        // Deploy via PoolManager timelock
+        _localDeployCapital(deployable, treasury);
 
         // Warp to first interest payment
         vm.warp(block.timestamp + 34 days);
 
-        // First claim should succeed (reserve covers 2 months)
+        // First claim should succeed
         vm.prank(user1);
         vault.claimInterest();
 
         // Warp to second interest payment
         vm.warp(block.timestamp + 30 days);
 
-        // Second claim should still succeed (we have 2 month reserve)
+        // Second claim should still succeed
         uint256 balanceBefore = usdc.balanceOf(user1);
         vm.prank(user1);
         vault.claimInterest();
@@ -483,8 +497,8 @@ contract RWAVaultSecurityTest is Test {
         // Deploy some capital (leaving sufficient reserve)
         uint256 deployable = 50_000e6; // Only deploy half
 
-        vm.prank(address(poolManager));
-        vault.deployCapital(deployable, treasury);
+        // Deploy via PoolManager timelock
+        _localDeployCapital(deployable, treasury);
 
         _matureVault();
 
@@ -553,7 +567,7 @@ contract RWAVaultSecurityTest is Test {
 
         // Trigger default (admin has DEFAULT_ADMIN_ROLE via VaultFactory setup)
         vm.prank(admin);
-        vault.triggerDefault();
+        poolManager.triggerDefault(address(vault));
 
         // Admin sets withdrawal time using the admin role granted during vault creation
         vm.startPrank(admin);
@@ -885,10 +899,10 @@ contract RWAVaultSecurityTest is Test {
         // Attacker tries to trigger default
         vm.prank(attacker);
         vm.expectRevert();
-        vault.triggerDefault();
+        poolManager.triggerDefault(address(vault));
     }
 
-    /// @notice Test unauthorized deployCapital attempt
+    /// @notice Test unauthorized deployCapital attempt via PoolManager
     function test_Attack_UnauthorizedDeployCapital() public {
         vm.startPrank(user1);
         usdc.approve(address(vault), 100_000e6);
@@ -897,17 +911,18 @@ contract RWAVaultSecurityTest is Test {
 
         vm.warp(block.timestamp + 8 days);
 
-        // Attacker tries to deploy capital
+        // Attacker tries to deploy capital via PoolManager (no CURATOR_ROLE)
         vm.prank(attacker);
-        vm.expectRevert(RWAErrors.Unauthorized.selector);
-        vault.deployCapital(50_000e6, attacker);
+        vm.expectRevert(); // AccessControl revert
+        poolManager.announceDeployCapital(address(vault), 50_000e6, attacker);
     }
 
-    /// @notice Test unauthorized returnCapital attempt
+    /// @notice Test unauthorized returnCapital attempt via PoolManager
     function test_Attack_UnauthorizedReturnCapital() public {
+        // Attacker tries to return capital via PoolManager (no OPERATOR_ROLE)
         vm.prank(attacker);
-        vm.expectRevert(RWAErrors.Unauthorized.selector);
-        vault.returnCapital(10_000e6);
+        vm.expectRevert(); // AccessControl revert
+        poolManager.returnCapital(address(vault), 10_000e6);
     }
 
     /// @notice Test whitelist bypass attempts

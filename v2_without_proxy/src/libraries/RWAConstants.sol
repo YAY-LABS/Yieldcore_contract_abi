@@ -25,9 +25,6 @@ library RWAConstants {
     /// @notice High precision for ratio calculations (1e18)
     uint256 internal constant PRECISION = 1e18;
 
-    /// @notice Exchange rate precision (8 decimals)
-    uint256 internal constant EXCHANGE_RATE_PRECISION = 1e8;
-
     /// @notice Minimum loan term (30 days)
     uint256 internal constant MIN_LOAN_TERM = 30 days;
 
@@ -52,9 +49,6 @@ library RWAConstants {
 
     /// @notice Minimum share transfer amount to prevent dust/rounding issues (1 USDC worth)
     uint256 internal constant MIN_SHARE_TRANSFER = 1e6;
-
-    /// @notice Minimum interest reserve months (2 months worth of interest must remain in vault)
-    uint256 internal constant MIN_INTEREST_RESERVE_MONTHS = 2;
 
     // ============ Role Definitions ============
     /// @notice Curator role - can create loans, trigger defaults

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {BaseTest} from "../BaseTest.sol";
+import {RWAVault} from "../../../src/vault/RWAVault.sol";
+import {IRWAVault} from "../../../src/interfaces/IRWAVault.sol";
 import {IPoolManager} from "../../../src/interfaces/IPoolManager.sol";
 import {ILoanRegistry} from "../../../src/interfaces/ILoanRegistry.sol";
 import {RWAConstants} from "../../../src/libraries/RWAConstants.sol";
@@ -16,6 +18,9 @@ contract PoolManagerTest is BaseTest {
 
         // Deposit to vault for liquidity
         _depositToVault(testVault, user1, 500_000e6);
+
+        // Warp past collection end time
+        vm.warp(block.timestamp + 8 days);
     }
 
     // ============ Initialization Tests ============
@@ -35,15 +40,129 @@ contract PoolManagerTest is BaseTest {
         assertTrue(poolManager.hasRole(RWAConstants.OPERATOR_ROLE, operator));
     }
 
-    // ============ createLoan Tests ============
+    // ============ Capital Deployment Tests ============
 
-    function test_createLoan_success() public {
-        IPoolManager.LoanParams memory params = _createTestLoanParams();
-
-        uint256 pmBalanceBefore = usdc.balanceOf(address(poolManager));
+    function test_announceDeployCapital_success() public {
+        uint256 amount = 100_000e6;
 
         vm.prank(curator);
-        uint256 loanId = poolManager.createLoan(params);
+        poolManager.announceDeployCapital(testVault, amount, borrower);
+
+        // Check pending deployment on vault
+        (uint256 pendingAmount, address pendingRecipient, , bool active) = RWAVault(testVault).getPendingDeployment();
+        assertEq(pendingAmount, amount);
+        assertEq(pendingRecipient, borrower);
+        assertTrue(active);
+    }
+
+    function test_executeDeployCapital_success() public {
+        uint256 amount = 100_000e6;
+        uint256 borrowerBalanceBefore = usdc.balanceOf(borrower);
+
+        // Announce deployment
+        vm.prank(curator);
+        poolManager.announceDeployCapital(testVault, amount, borrower);
+
+        // Warp past timelock
+        uint256 delay = RWAVault(testVault).deploymentDelay();
+        vm.warp(block.timestamp + delay + 1);
+
+        // Execute deployment
+        vm.prank(curator);
+        poolManager.executeDeployCapital(testVault);
+
+        // Verify capital deployed
+        assertEq(usdc.balanceOf(borrower) - borrowerBalanceBefore, amount);
+        assertEq(RWAVault(testVault).totalDeployed(), amount);
+    }
+
+    function test_cancelDeployCapital_success() public {
+        uint256 amount = 100_000e6;
+
+        vm.prank(curator);
+        poolManager.announceDeployCapital(testVault, amount, borrower);
+
+        vm.prank(curator);
+        poolManager.cancelDeployCapital(testVault);
+
+        // Check pending deployment cleared
+        (, , , bool active) = RWAVault(testVault).getPendingDeployment();
+        assertFalse(active);
+    }
+
+    function test_announceDeployCapital_revertUnauthorized() public {
+        vm.prank(user1);
+        vm.expectRevert(RWAErrors.Unauthorized.selector);
+        poolManager.announceDeployCapital(testVault, 100_000e6, borrower);
+    }
+
+    function test_announceDeployCapital_revertVaultNotRegistered() public {
+        address fakeVault = makeAddr("fakeVault");
+
+        vm.prank(curator);
+        vm.expectRevert(RWAErrors.VaultNotRegistered.selector);
+        poolManager.announceDeployCapital(fakeVault, 100_000e6, borrower);
+    }
+
+    // ============ Capital Management Tests ============
+
+    function test_returnCapital_success() public {
+        // First deploy capital
+        _deployCapital(testVault, 100_000e6, borrower);
+
+        // Return capital
+        uint256 returnAmount = 50_000e6;
+        vm.startPrank(operator);
+        usdc.approve(address(poolManager), returnAmount);
+        poolManager.returnCapital(testVault, returnAmount);
+        vm.stopPrank();
+
+        assertEq(RWAVault(testVault).totalDeployed(), 50_000e6);
+    }
+
+    function test_depositInterest_success() public {
+        uint256 interestAmount = 10_000e6;
+
+        vm.startPrank(operator);
+        usdc.approve(address(poolManager), interestAmount);
+        poolManager.depositInterest(testVault, interestAmount);
+        vm.stopPrank();
+
+        // Interest deposited to vault
+        assertGe(usdc.balanceOf(testVault), interestAmount);
+    }
+
+    function test_triggerDefault_success() public {
+        // Activate vault first
+        vm.prank(admin);
+        RWAVault(testVault).activateVault();
+
+        vm.prank(curator);
+        poolManager.triggerDefault(testVault);
+
+        assertEq(uint8(RWAVault(testVault).currentPhase()), uint8(IRWAVault.Phase.Defaulted));
+    }
+
+    function test_recoverERC20_success() public {
+        // Send some other token to vault
+        MockERC20 otherToken = new MockERC20("Other", "OTHER", 18);
+        otherToken.mint(testVault, 1000e18);
+
+        uint256 treasuryBalanceBefore = otherToken.balanceOf(treasury);
+
+        vm.prank(admin);
+        poolManager.recoverERC20(testVault, address(otherToken), 1000e18, treasury);
+
+        assertEq(otherToken.balanceOf(treasury) - treasuryBalanceBefore, 1000e18);
+    }
+
+    // ============ registerLoan Tests ============
+
+    function test_registerLoan_success() public {
+        IPoolManager.LoanParams memory params = _createTestLoanParams();
+
+        vm.prank(curator);
+        uint256 loanId = poolManager.registerLoan(params);
 
         assertEq(loanId, 1);
 
@@ -55,92 +174,91 @@ contract PoolManagerTest is BaseTest {
         assertEq(loan.collateralValue, params.collateralValue);
         assertEq(uint8(loan.status), uint8(ILoanRegistry.LoanStatus.Active));
 
-        // Check capital deployed (poolManager received the principal)
-        assertEq(usdc.balanceOf(address(poolManager)) - pmBalanceBefore, params.principal);
+        // Note: registerLoan does NOT deploy capital - that's separate
     }
 
-    function test_createLoan_revertUnauthorized() public {
+    function test_registerLoan_revertUnauthorized() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
 
         vm.prank(user1);
         vm.expectRevert(RWAErrors.Unauthorized.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertZeroAmount() public {
+    function test_registerLoan_revertZeroAmount() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         params.principal = 0;
 
         vm.prank(curator);
         vm.expectRevert(RWAErrors.ZeroAmount.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertInvalidLoanTerm_tooShort() public {
+    function test_registerLoan_revertInvalidLoanTerm_tooShort() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         params.term = 29 days;
 
         vm.prank(curator);
         vm.expectRevert(RWAErrors.InvalidLoanTerm.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertInvalidLoanTerm_tooLong() public {
+    function test_registerLoan_revertInvalidLoanTerm_tooLong() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         params.term = 366 days;
 
         vm.prank(curator);
         vm.expectRevert(RWAErrors.InvalidLoanTerm.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertInvalidInterestRate_tooLow() public {
+    function test_registerLoan_revertInvalidInterestRate_tooLow() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         params.interestRate = 99; // < 1%
 
         vm.prank(curator);
         vm.expectRevert(RWAErrors.InvalidInterestRate.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertInvalidInterestRate_tooHigh() public {
+    function test_registerLoan_revertInvalidInterestRate_tooHigh() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         params.interestRate = 5001; // > 50%
 
         vm.prank(curator);
         vm.expectRevert(RWAErrors.InvalidInterestRate.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertInvalidCollateralValue() public {
+    function test_registerLoan_revertInvalidCollateralValue() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         params.collateralValue = 0;
 
         vm.prank(curator);
         vm.expectRevert(RWAErrors.InvalidCollateralValue.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertExceedsMaxLTV() public {
+    function test_registerLoan_revertExceedsMaxLTV() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         // LTV = 100k / 100k = 100% > 80%
         params.collateralValue = 100_000e6;
 
         vm.prank(curator);
         vm.expectRevert(RWAErrors.InvalidCollateralValue.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertVaultNotRegistered() public {
+    function test_registerLoan_revertVaultNotRegistered() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         params.vault = makeAddr("unregistered");
 
         vm.prank(curator);
         vm.expectRevert(RWAErrors.VaultNotRegistered.selector);
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
-    function test_createLoan_revertWhenPaused() public {
+    function test_registerLoan_revertWhenPaused() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
 
         vm.prank(admin);
@@ -148,16 +266,18 @@ contract PoolManagerTest is BaseTest {
 
         vm.prank(curator);
         vm.expectRevert();
-        poolManager.createLoan(params);
+        poolManager.registerLoan(params);
     }
 
     // ============ recordRepayment Tests ============
 
     function test_recordRepayment_success() public {
-        // Create loan
+        // Register loan and deploy capital
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         vm.prank(curator);
-        uint256 loanId = poolManager.createLoan(params);
+        uint256 loanId = poolManager.registerLoan(params);
+
+        _deployCapital(testVault, params.principal, address(poolManager));
 
         // Warp some time
         vm.warp(block.timestamp + 30 days);
@@ -182,10 +302,12 @@ contract PoolManagerTest is BaseTest {
     }
 
     function test_recordRepayment_fullRepayment() public {
-        // Create loan
+        // Register loan and deploy capital
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         vm.prank(curator);
-        uint256 loanId = poolManager.createLoan(params);
+        uint256 loanId = poolManager.registerLoan(params);
+
+        _deployCapital(testVault, params.principal, address(poolManager));
 
         // Warp some time
         vm.warp(block.timestamp + 180 days);
@@ -208,7 +330,7 @@ contract PoolManagerTest is BaseTest {
     function test_recordRepayment_revertUnauthorized() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         vm.prank(curator);
-        uint256 loanId = poolManager.createLoan(params);
+        uint256 loanId = poolManager.registerLoan(params);
 
         vm.prank(user1);
         vm.expectRevert(RWAErrors.Unauthorized.selector);
@@ -218,7 +340,7 @@ contract PoolManagerTest is BaseTest {
     function test_recordRepayment_revertZeroAmount() public {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         vm.prank(curator);
-        uint256 loanId = poolManager.createLoan(params);
+        uint256 loanId = poolManager.registerLoan(params);
 
         vm.prank(operator);
         vm.expectRevert(RWAErrors.ZeroAmount.selector);
@@ -229,7 +351,9 @@ contract PoolManagerTest is BaseTest {
         IPoolManager.LoanParams memory params = _createTestLoanParams();
 
         vm.prank(curator);
-        uint256 loanId = poolManager.createLoan(params);
+        uint256 loanId = poolManager.registerLoan(params);
+
+        _deployCapital(testVault, params.principal, address(poolManager));
 
         // Fully repay the loan
         vm.startPrank(operator);
@@ -283,10 +407,12 @@ contract PoolManagerTest is BaseTest {
     // These tests verify the fee infrastructure still works for future use
 
     function test_noFeesCollected_afterRepayment() public {
-        // Create loan and repay
+        // Register loan and deploy capital
         IPoolManager.LoanParams memory params = _createTestLoanParams();
         vm.prank(curator);
-        uint256 loanId = poolManager.createLoan(params);
+        uint256 loanId = poolManager.registerLoan(params);
+
+        _deployCapital(testVault, params.principal, address(poolManager));
 
         uint256 interestAmount = 10_000e6;
         vm.startPrank(operator);
@@ -357,4 +483,15 @@ contract PoolManagerTest is BaseTest {
             collateralValue: 150_000e6
         });
     }
+}
+
+// Mock for testing recoverERC20
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+contract MockERC20 is ERC20 {
+    uint8 private _decimals;
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
+        _decimals = decimals_;
+    }
+    function decimals() public view override returns (uint8) { return _decimals; }
+    function mint(address to, uint256 amount) external { _mint(to, amount); }
 }

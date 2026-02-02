@@ -402,27 +402,33 @@ contract RWAVaultTest is BaseTest {
         vault.deposit(depositAmount, user1);
         vm.stopPrank();
 
-        // Deploy capital
+        // Warp past collection end time
+        vm.warp(block.timestamp + 8 days);
+
+        // Deploy capital through PoolManager (with timelock)
         uint256 deployAmount = 50_000e6;
         uint256 recipientBalanceBefore = usdc.balanceOf(borrower);
 
-        vm.prank(address(poolManager));
-        vault.deployCapital(deployAmount, borrower);
+        _deployCapital(address(vault), deployAmount, borrower);
 
         assertEq(vault.totalDeployed(), deployAmount);
         assertEq(usdc.balanceOf(borrower), recipientBalanceBefore + deployAmount);
     }
 
     function test_deployCapital_revertUnauthorized() public {
+        // Unauthorized user cannot call announceDeployCapital on vault
         vm.prank(user1);
         vm.expectRevert(RWAErrors.Unauthorized.selector);
-        vault.deployCapital(10_000e6, borrower);
+        vault.announceDeployCapital(10_000e6, borrower);
     }
 
     function test_deployCapital_revertZeroAmount() public {
+        // Warp past collection end time
+        vm.warp(block.timestamp + 8 days);
+
         vm.prank(address(poolManager));
         vm.expectRevert(RWAErrors.ZeroAmount.selector);
-        vault.deployCapital(0, borrower);
+        vault.announceDeployCapital(0, borrower);
     }
 
     function test_deployCapital_revertInsufficientLiquidity() public {
@@ -433,9 +439,12 @@ contract RWAVaultTest is BaseTest {
         vault.deposit(depositAmount, user1);
         vm.stopPrank();
 
+        // Warp past collection end time
+        vm.warp(block.timestamp + 8 days);
+
         vm.prank(address(poolManager));
         vm.expectRevert(RWAErrors.InsufficientLiquidity.selector);
-        vault.deployCapital(depositAmount + 1e6, borrower);
+        vault.announceDeployCapital(depositAmount + 1e6, borrower);
     }
 
     function test_returnCapital_success() public {
@@ -448,15 +457,14 @@ contract RWAVaultTest is BaseTest {
         vault.deposit(depositAmount, user1);
         vm.stopPrank();
 
-        // Deploy
-        vm.prank(address(poolManager));
-        vault.deployCapital(deployAmount, address(poolManager));
+        // Warp past collection end time
+        vm.warp(block.timestamp + 8 days);
 
-        // Return capital (approve, then vault pulls via returnCapital)
-        vm.startPrank(address(poolManager));
-        usdc.approve(address(vault), deployAmount);
-        vault.returnCapital(deployAmount);
-        vm.stopPrank();
+        // Deploy through PoolManager
+        _deployCapital(address(vault), deployAmount, address(poolManager));
+
+        // Return capital through PoolManager
+        _returnCapital(address(vault), deployAmount);
 
         assertEq(vault.totalDeployed(), 0);
         assertEq(vault.totalAssets(), depositAmount);
@@ -542,7 +550,9 @@ contract RWAVaultTest is BaseTest {
         vault.setInterestStartTime(newStartTime);
 
         assertEq(vault.interestStartTime(), newStartTime);
-        assertEq(vault.maturityTime(), newStartTime + 180 days);
+        // maturityTime is now derived from interestPeriodEndDates[last]
+        // It doesn't auto-update when interestStartTime changes
+        // Admin must call setInterestPeriodEndDates with updated dates
     }
 
     function test_setInterestStartTime_revertAfterActive() public {
@@ -585,22 +595,22 @@ contract RWAVaultTest is BaseTest {
         randomToken.mint(address(vault), accidentalAmount);
 
         assertEq(randomToken.balanceOf(address(vault)), accidentalAmount);
-        assertEq(randomToken.balanceOf(admin), 0);
+        assertEq(randomToken.balanceOf(treasury), 0);
 
-        // Admin recovers the tokens
+        // Admin recovers the tokens via PoolManager
         vm.prank(admin);
-        vault.recoverERC20(address(randomToken), accidentalAmount);
+        poolManager.recoverERC20(address(vault), address(randomToken), accidentalAmount, treasury);
 
-        // Tokens should be transferred to admin
+        // Tokens should be transferred to treasury
         assertEq(randomToken.balanceOf(address(vault)), 0);
-        assertEq(randomToken.balanceOf(admin), accidentalAmount);
+        assertEq(randomToken.balanceOf(treasury), accidentalAmount);
     }
 
     function test_recoverERC20_revertVaultAsset() public {
-        // Try to recover the vault's underlying asset (USDC)
+        // Try to recover the vault's underlying asset (USDC) via PoolManager
         vm.prank(admin);
         vm.expectRevert(RWAErrors.InvalidAmount.selector);
-        vault.recoverERC20(address(usdc), 1000e6);
+        poolManager.recoverERC20(address(vault), address(usdc), 1000e6, treasury);
     }
 
     function test_recoverERC20_revertZeroAmount() public {
@@ -608,17 +618,17 @@ contract RWAVaultTest is BaseTest {
 
         vm.prank(admin);
         vm.expectRevert(RWAErrors.ZeroAmount.selector);
-        vault.recoverERC20(address(randomToken), 0);
+        poolManager.recoverERC20(address(vault), address(randomToken), 0, treasury);
     }
 
     function test_recoverERC20_revertUnauthorized() public {
         MockERC20 randomToken = new MockERC20("Random Token", "RND", 18);
         randomToken.mint(address(vault), 1000e18);
 
-        // Non-admin tries to recover
+        // Non-admin tries to recover via PoolManager
         vm.prank(user1);
-        vm.expectRevert();
-        vault.recoverERC20(address(randomToken), 1000e18);
+        vm.expectRevert(); // AccessControl revert
+        poolManager.recoverERC20(address(vault), address(randomToken), 1000e18, treasury);
     }
 
     // ============ Deployment Timelock Tests ============

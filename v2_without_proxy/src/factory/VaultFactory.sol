@@ -90,6 +90,7 @@ contract VaultFactory is YieldCoreBase, IVaultFactory {
         if (params.termDuration == 0) revert RWAErrors.InvalidAmount();
 
         // Validate interestPeriodEndDates
+        if (params.interestPeriodEndDates.length == 0) revert RWAErrors.PeriodEndDatesNotSet();
         if (params.interestPeriodEndDates.length > RWAConstants.MAX_PAYMENT_PERIODS) revert RWAErrors.ArrayTooLong();
 
         // Validate interestPaymentDates
@@ -106,8 +107,8 @@ contract VaultFactory is YieldCoreBase, IVaultFactory {
             unchecked { ++i; }
         }
 
-        // Validate withdrawalStartTime (must be >= maturityTime)
-        uint256 maturityTime = params.interestStartTime + params.termDuration;
+        // Validate withdrawalStartTime (must be >= maturityTime from interestPeriodEndDates)
+        uint256 maturityTime = params.interestPeriodEndDates[params.interestPeriodEndDates.length - 1];
         if (params.withdrawalStartTime < maturityTime) {
             revert RWAErrors.InvalidAmount();
         }

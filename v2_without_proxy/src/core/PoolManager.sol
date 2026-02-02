@@ -74,12 +74,138 @@ contract PoolManager is YieldCoreBase, IPoolManager {
         _;
     }
 
+    // ============ Capital Deployment (Timelock) ============
+
+    /// @notice Announces a capital deployment (starts timelock)
+    /// @param vault The vault address
+    /// @param amount The amount to deploy
+    /// @param recipient The recipient address
+    function announceDeployCapital(address vault, uint256 amount, address recipient)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyCurator
+        onlyRegisteredVault(vault)
+    {
+        IRWAVault(vault).announceDeployCapital(amount, recipient);
+    }
+
+    /// @notice Executes a pending deployment after timelock
+    /// @param vault The vault address
+    function executeDeployCapital(address vault)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyCurator
+        onlyRegisteredVault(vault)
+    {
+        IRWAVault(vault).executeDeployCapital();
+    }
+
+    /// @notice Cancels a pending deployment
+    /// @param vault The vault address
+    function cancelDeployCapital(address vault)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyCurator
+        onlyRegisteredVault(vault)
+    {
+        IRWAVault(vault).cancelDeployCapital();
+    }
+
+    // ============ Capital Management ============
+
+    /// @notice Returns capital to a vault
+    /// @param vault The vault address
+    /// @param amount The amount to return
+    function returnCapital(address vault, uint256 amount)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyOperator
+        onlyRegisteredVault(vault)
+    {
+        if (amount == 0) revert RWAErrors.ZeroAmount();
+
+        asset.safeTransferFrom(msg.sender, address(this), amount);
+        asset.forceApprove(vault, amount);
+        IRWAVault(vault).returnCapital(amount);
+    }
+
+    /// @notice Deposits interest to a vault
+    /// @param vault The vault address
+    /// @param amount The amount to deposit
+    function depositInterest(address vault, uint256 amount)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyOperator
+        onlyRegisteredVault(vault)
+    {
+        if (amount == 0) revert RWAErrors.ZeroAmount();
+
+        asset.safeTransferFrom(msg.sender, address(this), amount);
+        asset.forceApprove(vault, amount);
+        IRWAVault(vault).depositInterest(amount);
+    }
+
+    /// @notice Triggers default on a vault
+    /// @param vault The vault address
+    function triggerDefault(address vault)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyCurator
+        onlyRegisteredVault(vault)
+    {
+        IRWAVault(vault).triggerDefault();
+    }
+
+    /// @notice Recovers accidentally sent tokens from a vault
+    /// @param vault The vault address
+    /// @param token The token address to recover
+    /// @param amount The amount to recover
+    /// @param recipient The recipient address
+    function recoverERC20(address vault, address token, uint256 amount, address recipient)
+        external
+        nonReentrant
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRegisteredVault(vault)
+    {
+        IRWAVault(vault).recoverERC20(token, amount, recipient);
+    }
+
+    /// @notice Recovers remaining asset dust from a vault after all shares are burned
+    /// @param vault The vault address
+    /// @param recipient The recipient address
+    function recoverAssetDust(address vault, address recipient)
+        external
+        nonReentrant
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRegisteredVault(vault)
+    {
+        IRWAVault(vault).recoverAssetDust(recipient);
+    }
+
+    /// @notice Recovers ETH accidentally sent to a vault
+    /// @param vault The vault address
+    /// @param recipient The recipient address
+    function recoverETH(address vault, address payable recipient)
+        external
+        nonReentrant
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRegisteredVault(vault)
+    {
+        IRWAVault(vault).recoverETH(recipient);
+    }
+
     // ============ Loan Management ============
 
-    /// @notice Creates a new loan
+    /// @notice Registers a new loan (without deployment - use announceDeployCapital separately)
     /// @param params The loan parameters
     /// @return loanId The created loan ID
-    function createLoan(LoanParams calldata params)
+    function registerLoan(LoanParams calldata params)
         external
         nonReentrant
         whenNotPaused
@@ -102,7 +228,7 @@ contract PoolManager is YieldCoreBase, IPoolManager {
         uint256 ltv = (params.principal * RWAConstants.BASIS_POINTS) / params.collateralValue;
         if (ltv > RWAConstants.MAX_LTV_RATIO) revert RWAErrors.InvalidCollateralValue();
 
-        // Register loan
+        // Register loan (no deployment - must be done separately via announceDeployCapital)
         ILoanRegistry.Loan memory loan = ILoanRegistry.Loan({
             id: 0,
             vault: params.vault,
@@ -119,9 +245,6 @@ contract PoolManager is YieldCoreBase, IPoolManager {
         });
 
         loanId = loanRegistry.registerLoan(loan);
-
-        // Deploy capital from vault
-        IRWAVault(params.vault).deployCapital(params.principal, address(this));
 
         emit RWAEvents.LoanCreated(
             loanId,

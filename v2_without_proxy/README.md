@@ -1,4 +1,4 @@
-# YieldCore RWA Protocol
+# YieldCore RWA Protocol (v2)
 
 A decentralized Real World Asset (RWA) investment protocol built on Ethereum, enabling fixed-term vaults with monthly interest payments and ERC-4626 compliant shares.
 
@@ -13,20 +13,20 @@ A decentralized Real World Asset (RWA) investment protocol built on Ethereum, en
         ▼                                             ▼
 ┌───────────────┐                            ┌───────────────────┐
 │  VaultFactory │                            │   PoolManager     │
-│  (Creates     │◄───────────────────────────┤   (Capital Ops)   │
-│   Vaults)     │                            │                   │
+│  (EIP-1167    │◄───────────────────────────┤   (Capital Ops)   │
+│   Clones)     │                            │                   │
 └───────┬───────┘                            └─────────┬─────────┘
         │                                             │
         │                                             │
         ▼                                             ▼
 ┌───────────────┐    ┌───────────────────┐   ┌───────────────────┐
-│  VaultBeacon  │    │  VaultRegistry    │   │   LoanRegistry    │
-│  (Upgrades)   │    │  (Metadata)       │   │   (External Inv.  │
+│ RWAVault      │    │  VaultRegistry    │   │   LoanRegistry    │
+│ Implementation│    │  (Metadata)       │   │   (External Inv.  │
 └───────┬───────┘    └───────────────────┘   │    Metadata)      │
         │                                    └───────────────────┘
         ▼
 ┌───────────────────────────────────────────────────────────────┐
-│                        RWAVaultV1                              │
+│                        RWAVault (Clone)                        │
 │  (ERC-4626 Fixed-Term Vault with Monthly Interest)            │
 │                                                                │
 │  Phase: Collecting ──► Active ──► Matured                      │
@@ -42,16 +42,21 @@ A decentralized Real World Asset (RWA) investment protocol built on Ethereum, en
   - **Collecting Phase**: Users deposit USDC during collection period
   - **Active Phase**: Monthly interest claims available
   - **Matured Phase**: Principal + remaining interest withdrawal
+  - Uses EIP-1167 minimal proxy (clone) pattern for gas-efficient deployment
 
 ### Core Layer
 
-- **PoolManager**: Orchestrates capital deployment and return from external investments
+- **PoolManager**: Orchestrates capital deployment and return with timelock security
+  - Capital deployment requires announcement + delay (1h ~ 7d)
+  - Centralized control for all vault operations
 - **LoanRegistry**: Tracks external investment metadata (KRW conversion, RWA purchases)
 - **VaultRegistry**: Stores vault metadata and tracks TVL
 
 ### Factory Layer
 
-- **VaultFactory**: Deploys new RWA vaults
+- **VaultFactory**: Deploys new RWA vaults using EIP-1167 clone pattern
+  - ~90% gas savings compared to full contract deployment
+  - Each vault is a minimal proxy pointing to implementation
 
 ## Key Features
 
@@ -59,6 +64,7 @@ A decentralized Real World Asset (RWA) investment protocol built on Ethereum, en
 
 - Deposit USDC during collection phase to earn fixed APY
 - ERC-4626 compliant shares for DeFi composability
+- **Collection start time control**: Deposits only allowed after `collectionStartTime`
 - **Monthly interest claims** during active phase
   - `claimInterest()`: Claim all available months at once
   - `claimSingleMonth()`: Claim one month at a time
@@ -69,16 +75,21 @@ A decentralized Real World Asset (RWA) investment protocol built on Ethereum, en
 
 ### For Protocol
 
-- Role-based access control (Admin, Curator, Operator)
-- Upgradeable via UUPS proxy pattern
+- Role-based access control (Admin, Curator, Operator, Pauser)
+- **Non-upgradeable** contracts (clone pattern, not proxy)
 - Pausable for emergency situations
-- Protocol fee on interest income (currently disabled)
+- Protocol fee on interest income (configurable)
+- **Capital deployment timelock** for security (1h minimum delay)
 
 ### For Risk Management
 
 - Phase-based vault lifecycle prevents early withdrawal
 - Configurable collection periods and term durations
 - Fixed APY with guaranteed interest rate
+- **Asset recovery functions** for stuck funds:
+  - `recoverAssetDust()`: Recover USDC dust after all shares burned
+  - `recoverETH()`: Recover accidentally sent ETH
+  - `recoverERC20()`: Recover non-USDC tokens
 
 ## Vault Lifecycle
 
@@ -87,31 +98,31 @@ A decentralized Real World Asset (RWA) investment protocol built on Ethereum, en
 │   COLLECTING   │────►│     ACTIVE     │────►│    MATURED     │
 │                │     │                │     │                │
 │ • Deposits OK  │     │ • No deposits  │     │ • No deposits  │
-│ • No withdraw  │     │ • No withdraw  │     │ • Withdraw OK  │
-│ • No interest  │     │ • Claim monthly│     │ • Claim final  │
-│                │     │   interest     │     │   interest     │
+│   (after start)│     │ • No withdraw  │     │ • Withdraw OK  │
+│ • No withdraw  │     │ • Claim monthly│     │ • Claim final  │
+│ • No interest  │     │   interest     │     │   interest     │
 └────────────────┘     └────────────────┘     └────────────────┘
      │                        │                      │
-     │ collectionEndTime      │ maturityTime         │
+     │ activateVault()        │ matureVault()        │
+     │ (after collectionEnd)  │ (after maturity)     │
      └────────────────────────┴──────────────────────┘
 ```
 
 ## Roles
 
-| Role                 | Permissions                                   |
-| -------------------- | --------------------------------------------- |
-| `DEFAULT_ADMIN_ROLE` | Full protocol administration                  |
-| `CURATOR_ROLE`       | Manage external investments, create loans     |
-| `OPERATOR_ROLE`      | Record repayments                             |
-| `POOL_MANAGER_ROLE`  | Internal cross-contract calls                 |
-| `PAUSER_ROLE`        | Pause/unpause contracts                       |
+| Role                 | Permissions                                        |
+| -------------------- | -------------------------------------------------- |
+| `DEFAULT_ADMIN_ROLE` | Full protocol administration, vault lifecycle      |
+| `CURATOR_ROLE`       | Capital deployment (announce/execute/cancel)       |
+| `OPERATOR_ROLE`      | Return capital, deposit interest, record repayment |
+| `PAUSER_ROLE`        | Pause/unpause contracts                            |
 
 ## Installation
 
 ```bash
 # Clone repository
 git clone <repository-url>
-cd yieldcore_RWA_contracts/v1
+cd yieldcore_RWA_contracts/v2_without_proxy
 
 # Install dependencies
 forge install
@@ -133,7 +144,7 @@ forge test
 forge test -vvv
 
 # Run specific test file
-forge test --match-path test/unit/vault/RWAVaultV1.t.sol
+forge test --match-path test/unit/vault/RWAVault.t.sol
 
 # Run security tests (attack scenarios)
 forge test --match-path test/security/*.sol -vvv
@@ -166,6 +177,7 @@ PRIVATE_KEY=<deployer-private-key>
 ADMIN_ADDRESS=<admin-address>
 TREASURY_ADDRESS=<treasury-address>
 ASSET_ADDRESS=<usdc-address>
+SEPOLIA_RPC_URL=<rpc-url>
 ```
 
 ### Deploy Protocol
@@ -173,32 +185,18 @@ ASSET_ADDRESS=<usdc-address>
 ```bash
 # Deploy to testnet
 forge script script/Deploy.s.sol:DeployYieldCoreRWA \
-  --rpc-url $RPC_URL \
+  --rpc-url $SEPOLIA_RPC_URL \
   --broadcast \
   --verify
-
-# Deploy to mainnet (add --slow for safety)
-forge script script/Deploy.s.sol:DeployYieldCoreRWA \
-  --rpc-url $MAINNET_RPC_URL \
-  --broadcast \
-  --verify \
-  --slow
 ```
 
 ### Create a Vault
 
 ```bash
 export VAULT_FACTORY_ADDRESS=<deployed-factory-address>
-export VAULT_NAME="YieldCore RWA Vault"
-export VAULT_SYMBOL="ycRWA"
-export COLLECTION_DURATION=604800  # 7 days in seconds
-export TERM_DURATION=15552000  # 180 days in seconds
-export FIXED_APY=1500  # 15%
-export MIN_DEPOSIT=100000000  # 100 USDC
-export MAX_CAPACITY=10000000000000  # 10M USDC
 
-forge script script/Deploy.s.sol:CreateVault \
-  --rpc-url $RPC_URL \
+forge script script/CreateWhitelistVault.s.sol:CreateWhitelistVault \
+  --rpc-url $SEPOLIA_RPC_URL \
   --broadcast
 ```
 
@@ -206,56 +204,51 @@ forge script script/Deploy.s.sol:CreateVault \
 
 ### Constants (`RWAConstants.sol`)
 
-| Parameter           | Value      | Description                 |
-| ------------------- | ---------- | --------------------------- |
-| `BASIS_POINTS`      | 10,000     | Basis points denominator    |
-| `MIN_INTEREST_RATE` | 500 (5%)   | Minimum loan interest rate  |
-| `MAX_INTEREST_RATE` | 5000 (50%) | Maximum loan interest rate  |
-| `MIN_LOAN_TERM`     | 30 days    | Minimum loan duration       |
-| `MAX_LOAN_TERM`     | 365 days   | Maximum loan duration       |
-| `MAX_LTV`           | 8000 (80%) | Maximum loan-to-value ratio |
-| `MAX_PROTOCOL_FEE`  | 2000 (20%) | Maximum protocol fee        |
-| `MAX_TARGET_APY`    | 5000 (50%) | Maximum target/fixed APY    |
+| Parameter              | Value      | Description                     |
+| ---------------------- | ---------- | ------------------------------- |
+| `BASIS_POINTS`         | 10,000     | Basis points denominator        |
+| `MIN_INTEREST_RATE`    | 100 (1%)   | Minimum loan interest rate      |
+| `MAX_INTEREST_RATE`    | 5000 (50%) | Maximum loan interest rate      |
+| `MIN_LOAN_TERM`        | 30 days    | Minimum loan duration           |
+| `MAX_LOAN_TERM`        | 365 days   | Maximum loan duration           |
+| `MAX_LTV`              | 8000 (80%) | Maximum loan-to-value ratio     |
+| `MAX_PROTOCOL_FEE`     | 1000 (10%) | Maximum protocol fee            |
+| `MAX_TARGET_APY`       | 5000 (50%) | Maximum target/fixed APY        |
+| `MIN_DEPLOYMENT_DELAY` | 1 hour     | Minimum capital deployment delay|
+| `MAX_DEPLOYMENT_DELAY` | 7 days     | Maximum capital deployment delay|
 
 ### Vault Parameters
 
-| Parameter            | Description                              |
-| -------------------- | ---------------------------------------- |
-| `collectionEndTime`  | When deposit collection phase ends       |
-| `interestStartTime`  | When interest starts accruing            |
-| `termDuration`       | Duration of the investment term          |
-| `fixedAPY`           | Fixed annual percentage yield (in bps)   |
-| `minDeposit`         | Minimum deposit amount                   |
-| `maxCapacity`        | Maximum vault capacity                   |
-| `whitelistEnabled`   | Enable/disable whitelist for deposits    |
-| `minDepositPerUser`  | Minimum deposit per user (0 = no limit)  |
-| `maxDepositPerUser`  | Maximum deposit per user (0 = no limit)  |
+| Parameter             | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| `collectionStartTime` | When deposits become allowed (0 = immediate)   |
+| `collectionEndTime`   | When deposit collection phase ends             |
+| `interestStartTime`   | When interest starts accruing                  |
+| `termDuration`        | Duration of the investment term (informational)|
+| `fixedAPY`            | Fixed annual percentage yield (in bps)         |
+| `minDeposit`          | Minimum deposit amount                         |
+| `maxCapacity`         | Maximum vault capacity                         |
+| `whitelistEnabled`    | Enable/disable whitelist for deposits          |
+| `minDepositPerUser`   | Minimum deposit per user (0 = no limit)        |
+| `maxDepositPerUser`   | Maximum deposit per user (0 = no limit)        |
+| `withdrawalStartTime` | When principal withdrawal is allowed           |
+| `deploymentDelay`     | Timelock delay for capital deployment          |
 
-## Investment Lifecycle
+## Capital Deployment (Timelock)
 
-1. **Collection Phase**
-   - Users deposit USDC to RWA vault, receive shares
-   - Deposits accepted until `collectionEndTime`
+Capital deployment uses a timelock mechanism for security:
 
-2. **Activation**
-   - Admin activates vault after collection ends
+```
+1. Curator calls announceDeployCapital(vault, amount, recipient)
+   └── Records pending deployment with executeTime = now + delay
 
-3. **Capital Deployment**
-   - PoolManager deploys capital to external investments
-   - Funds converted to KRW for RWA purchases
-   - LoanRegistry tracks investment metadata
+2. Wait for deploymentDelay (default: 1 hour)
 
-4. **Active Phase**
-   - Users claim monthly interest (fixedAPY / 12 per month)
-   - Interest deposited to vault by operator
+3. Curator calls executeDeployCapital(vault)
+   └── Transfers funds to recipient
 
-5. **Capital Return**
-   - External investments mature, capital returned
-   - PoolManager returns capital to vault
-
-6. **Maturity**
-   - Admin matures vault after `maturityTime`
-   - Users redeem shares for principal + remaining interest
+(Optional) Curator calls cancelDeployCapital(vault) to cancel
+```
 
 ## Interest Calculation
 
@@ -284,7 +277,7 @@ See [INTEREST_CLAIMING.md](docs/INTEREST_CLAIMING.md) for detailed documentation
 ## Security Considerations
 
 - All contracts use OpenZeppelin's battle-tested libraries
-- Non-upgradeable contracts for simplicity and security
+- **Non-upgradeable** contracts (EIP-1167 clone pattern)
 - ReentrancyGuard on all external functions
 - Access control on all privileged operations
 - Pausable for emergency response
@@ -293,18 +286,21 @@ See [INTEREST_CLAIMING.md](docs/INTEREST_CLAIMING.md) for detailed documentation
 - **ERC4626 inflation attack mitigation** via `totalPrincipal` tracking
 - **Balance checks** before interest claims to prevent over-withdrawal
 - **Division by zero protection** in share calculations
+- **Capital deployment timelock** prevents unauthorized fund movement
 - **Security tests** covering attack scenarios (see `test/security/`)
 
 ## Contract Addresses
 
 ### Testnet (Sepolia)
 
-| Contract        | Address |
-| --------------- | ------- |
-| VaultFactory    | TBD     |
-| PoolManager     | TBD     |
-| LoanRegistry    | TBD     |
-| VaultRegistry   | TBD     |
+| Contract           | Address                                      |
+| ------------------ | -------------------------------------------- |
+| VaultFactory       | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
+| PoolManager        | `0xDf83371FCBbBE09CE7BE80c0625932340265d90E` |
+| LoanRegistry       | `0x58d013c92f31B074df22BCD1fA3f4BB52bF967ca` |
+| VaultRegistry      | `0x3c22abA4D225E09103DC9eFFC4Bf3e2Cd802d301` |
+| RWAVault (Impl)    | `0x409a9F2431Baa91b2Ac9666d435056A84fa334Cb` |
+| USDC (Circle Test) | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
 
 ### Mainnet
 

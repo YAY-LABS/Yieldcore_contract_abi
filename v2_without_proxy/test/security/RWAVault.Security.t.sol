@@ -494,8 +494,8 @@ contract RWAVaultSecurityTest is Test {
         vault.claimInterest();
     }
 
-    /// @notice Test: deployCapital enforces minimum interest reserve
-    function test_Security_DeployCapitalEnforcesReserve() public {
+    /// @notice Test: deployCapital allows full deployment (no reserve requirement)
+    function test_Security_DeployCapitalAllowsFullDeployment() public {
         // Setup: deposit and activate vault
         vm.startPrank(user1);
         usdc.approve(address(vault), 1_000_000e6);
@@ -506,23 +506,20 @@ contract RWAVaultSecurityTest is Test {
         vm.prank(admin);
         vault.activateVault();
 
-        // Calculate minimum reserve (2 months of interest)
-        // Monthly interest = 1,000,000 * 15% / 12 = 12,500 USDC
-        // 2-month reserve = 25,000 USDC
-        uint256 minReserve = 25_000e6;
-        uint256 maxDeployable = 1_000_000e6 - minReserve; // 975,000 USDC
+        // Deploy full amount (no reserve requirement)
+        uint256 fullAmount = 1_000_000e6;
 
-        // Trying to deploy more than allowed should fail
-        vm.prank(address(poolManager));
-        vm.expectRevert(RWAErrors.InsufficientLiquidity.selector);
-        vault.deployCapital(999_900e6, address(poolManager)); // Leaves only 100 USDC < 25,000 reserve
+        vm.prank(admin);
+        poolManager.announceDeployCapital(address(vault), fullAmount, address(poolManager));
 
-        // Deploying within limit should succeed
-        vm.prank(address(poolManager));
-        vault.deployCapital(maxDeployable, address(poolManager));
+        vm.warp(block.timestamp + vault.deploymentDelay() + 1);
 
-        // Verify vault balance equals minimum reserve
-        assertEq(usdc.balanceOf(address(vault)), minReserve);
+        vm.prank(admin);
+        poolManager.executeDeployCapital(address(vault));
+
+        // Verify vault balance is zero (full deployment allowed)
+        assertEq(usdc.balanceOf(address(vault)), 0);
+        assertEq(vault.totalDeployed(), fullAmount);
     }
 
     /// @notice Test: Interest rate manipulation via APY overflow
@@ -616,16 +613,17 @@ contract RWAVaultSecurityTest is Test {
         vault.activateVault();
     }
 
-    /// @notice Test: Unauthorized user cannot call deployCapital
+    /// @notice Test: Unauthorized user cannot call deployCapital via PoolManager
     function test_Security_UnauthorizedDeployCapital() public {
         vm.startPrank(user1);
         usdc.approve(address(vault), 100_000e6);
         vault.deposit(100_000e6, user1);
         vm.stopPrank();
 
+        // Attacker has no CURATOR_ROLE, so cannot announce deployment
         vm.prank(attacker);
-        vm.expectRevert(RWAErrors.Unauthorized.selector);
-        vault.deployCapital(50_000e6, attacker);
+        vm.expectRevert(); // AccessControl revert
+        poolManager.announceDeployCapital(address(vault), 50_000e6, attacker);
     }
 
     /// @notice Test: Unauthorized user cannot pause

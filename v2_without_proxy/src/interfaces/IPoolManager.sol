@@ -39,8 +39,21 @@ interface IPoolManager {
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
     event FeesWithdrawn(address indexed treasury, uint256 amount);
 
+    // ============ Capital Deployment (Timelock) ============
+    function announceDeployCapital(address vault, uint256 amount, address recipient) external;
+    function executeDeployCapital(address vault) external;
+    function cancelDeployCapital(address vault) external;
+
+    // ============ Capital Management ============
+    function returnCapital(address vault, uint256 amount) external;
+    function depositInterest(address vault, uint256 amount) external;
+    function triggerDefault(address vault) external;
+    function recoverERC20(address vault, address token, uint256 amount, address recipient) external;
+    function recoverAssetDust(address vault, address recipient) external;
+    function recoverETH(address vault, address payable recipient) external;
+
     // ============ Loan Management ============
-    function createLoan(LoanParams calldata params) external returns (uint256 loanId);
+    function registerLoan(LoanParams calldata params) external returns (uint256 loanId);
 
     function recordRepayment(
         uint256 loanId,

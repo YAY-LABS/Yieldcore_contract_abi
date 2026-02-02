@@ -65,9 +65,14 @@ interface IRWAVault is IERC4626 {
 
     // ============ Pool Manager Functions ============
 
-    function deployCapital(uint256 amount, address recipient) external;
+    function announceDeployCapital(uint256 amount, address recipient) external;
+    function executeDeployCapital() external;
+    function cancelDeployCapital() external;
     function returnCapital(uint256 amount) external;
     function depositInterest(uint256 amount) external;
+    function recoverERC20(address token, uint256 amount, address recipient) external;
+    function recoverAssetDust(address recipient) external;
+    function recoverETH(address payable recipient) external;
 
     // ============ View Functions ============
 

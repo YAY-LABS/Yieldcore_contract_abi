@@ -200,4 +200,50 @@ abstract contract BaseTest is Test {
         RWAVault(vault).deposit(amount, user);
         vm.stopPrank();
     }
+
+    /// @notice Helper to deploy capital through PoolManager with timelock
+    /// @dev Calls announceDeployCapital, warps time, then executeDeployCapital
+    function _deployCapital(address vault, uint256 amount, address recipient) internal {
+        vm.startPrank(curator);
+        poolManager.announceDeployCapital(vault, amount, recipient);
+        vm.stopPrank();
+
+        // Warp past timelock
+        uint256 delay = RWAVault(vault).deploymentDelay();
+        vm.warp(block.timestamp + delay + 1);
+
+        vm.startPrank(curator);
+        poolManager.executeDeployCapital(vault);
+        vm.stopPrank();
+    }
+
+    /// @notice Helper to deploy capital with custom caller
+    function _deployCapitalAs(address vault, uint256 amount, address recipient, address caller) internal {
+        vm.startPrank(caller);
+        poolManager.announceDeployCapital(vault, amount, recipient);
+        vm.stopPrank();
+
+        uint256 delay = RWAVault(vault).deploymentDelay();
+        vm.warp(block.timestamp + delay + 1);
+
+        vm.startPrank(caller);
+        poolManager.executeDeployCapital(vault);
+        vm.stopPrank();
+    }
+
+    /// @notice Helper to return capital through PoolManager
+    function _returnCapital(address vault, uint256 amount) internal {
+        vm.startPrank(operator);
+        usdc.approve(address(poolManager), amount);
+        poolManager.returnCapital(vault, amount);
+        vm.stopPrank();
+    }
+
+    /// @notice Helper to deposit interest through PoolManager
+    function _depositInterest(address vault, uint256 amount) internal {
+        vm.startPrank(operator);
+        usdc.approve(address(poolManager), amount);
+        poolManager.depositInterest(vault, amount);
+        vm.stopPrank();
+    }
 }

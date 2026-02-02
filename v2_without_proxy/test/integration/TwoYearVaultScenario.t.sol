@@ -152,12 +152,11 @@ contract TwoYearVaultScenarioTest is Test {
         assertEq(uint256(vault.currentPhase()), uint256(IRWAVault.Phase.Active), "Vault should be active");
         console2.log("Vault activated at:", block.timestamp);
 
-        // Phase 3: Deploy Capital
+        // Phase 3: Deploy Capital (with timelock)
         console2.log("\n--- Phase 3: Deploy Capital ---");
 
         uint256 deployAmount = (HARD_CAP * 80) / 100;
-        vm.prank(address(poolManager));
-        vault.deployCapital(deployAmount, address(poolManager));
+        _deployCapital(deployAmount, address(poolManager));
 
         assertEq(vault.totalDeployed(), deployAmount, "Deploy amount mismatch");
         console2.log("Deployed:", deployAmount / 1e6, "USDC (80%)");
@@ -308,5 +307,23 @@ contract TwoYearVaultScenarioTest is Test {
         vm.prank(users[0]);
         vm.expectRevert();
         vault.redeem(shares, users[0], users[0]);
+    }
+
+    // ============ Helper Functions ============
+
+    function _deployCapital(uint256 amount, address recipient) internal {
+        // Grant CURATOR_ROLE to admin for deployment
+        vm.prank(admin);
+        poolManager.grantRole(RWAConstants.CURATOR_ROLE, admin);
+
+        vm.prank(admin);
+        poolManager.announceDeployCapital(address(vault), amount, recipient);
+
+        // Warp past timelock
+        uint256 delay = vault.deploymentDelay();
+        vm.warp(block.timestamp + delay + 1);
+
+        vm.prank(admin);
+        poolManager.executeDeployCapital(address(vault));
     }
 }

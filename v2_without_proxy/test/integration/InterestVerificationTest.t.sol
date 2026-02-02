@@ -265,7 +265,7 @@ contract InterestVerificationTest is BaseTest {
         console2.log("Total assets before default:", totalAssetsBefore);
 
         vm.prank(admin);
-        vault.triggerDefault();
+        poolManager.triggerDefault(address(vault));
 
         uint256 totalAssetsAfter = vault.totalAssets();
         console2.log("Total assets after default:", totalAssetsAfter);

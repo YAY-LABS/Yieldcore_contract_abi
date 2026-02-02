@@ -131,7 +131,7 @@ contract LoanLifecycleTest is Test {
         vm.prank(admin);
         vault.activateVault();
 
-        // Step 4: Curator creates a loan
+        // Step 4: Curator registers a loan and deploys capital
         uint256 loanPrincipal = 100_000e6;
         uint256 loanInterestRate = 2000; // 20% APR
         uint256 loanTerm = 180 days;
@@ -147,7 +147,10 @@ contract LoanLifecycleTest is Test {
         });
 
         vm.prank(curator);
-        uint256 loanId = poolManager.createLoan(loanParams);
+        uint256 loanId = poolManager.registerLoan(loanParams);
+
+        // Deploy capital separately (with timelock)
+        _deployCapital(address(vault), loanPrincipal, address(poolManager));
 
         // Verify loan created
         assertEq(loanId, 1);
@@ -198,9 +201,9 @@ contract LoanLifecycleTest is Test {
         vault.setWithdrawalStartTime(block.timestamp);
 
         // Step 10: Deposit interest to vault for user interest claims
-        vm.startPrank(address(poolManager));
-        usdc.approve(address(vault), 100_000e6);
-        vault.depositInterest(100_000e6);
+        vm.startPrank(operator);
+        usdc.approve(address(poolManager), 100_000e6);
+        poolManager.depositInterest(address(vault), 100_000e6);
         vm.stopPrank();
 
         // Step 11: Depositors withdraw after maturity
@@ -235,7 +238,7 @@ contract LoanLifecycleTest is Test {
         vm.prank(admin);
         vault.activateVault();
 
-        // Create 3 loans
+        // Create 3 loans (register + deploy separately)
         IPoolManager.LoanParams memory params1 = IPoolManager.LoanParams({
             vault: address(vault),
             borrowerId: keccak256("station001"),
@@ -264,10 +267,13 @@ contract LoanLifecycleTest is Test {
         });
 
         vm.startPrank(curator);
-        uint256 loanId1 = poolManager.createLoan(params1);
-        uint256 loanId2 = poolManager.createLoan(params2);
-        uint256 loanId3 = poolManager.createLoan(params3);
+        uint256 loanId1 = poolManager.registerLoan(params1);
+        uint256 loanId2 = poolManager.registerLoan(params2);
+        uint256 loanId3 = poolManager.registerLoan(params3);
         vm.stopPrank();
+
+        // Deploy capital for all loans
+        _deployCapital(address(vault), params1.principal + params2.principal + params3.principal, address(poolManager));
 
         assertEq(loanRegistry.getActiveLoanCount(), 3);
         assertEq(loanRegistry.getTotalOutstanding(), 240_000e6);
@@ -323,7 +329,8 @@ contract LoanLifecycleTest is Test {
         vm.prank(admin);
         vault.activateVault();
 
-        // Create 10 loans
+        // Create 10 loans and deploy capital once
+        uint256 totalPrincipal = 0;
         for (uint256 i = 0; i < 10; i++) {
             IPoolManager.LoanParams memory params = IPoolManager.LoanParams({
                 vault: address(vault),
@@ -335,8 +342,12 @@ contract LoanLifecycleTest is Test {
             });
 
             vm.prank(curator);
-            poolManager.createLoan(params);
+            poolManager.registerLoan(params);
+            totalPrincipal += params.principal;
         }
+
+        // Deploy capital for all loans in one batch
+        _deployCapital(address(vault), totalPrincipal, address(poolManager));
 
         assertEq(loanRegistry.getActiveLoanCount(), 10);
         assertEq(loanRegistry.getTotalOutstanding(), 1_000_000e6);
@@ -381,5 +392,17 @@ contract LoanLifecycleTest is Test {
         usdc.approve(address(vault), amount);
         vault.deposit(amount, depositor);
         vm.stopPrank();
+    }
+
+    function _deployCapital(address vaultAddr, uint256 amount, address recipient) internal {
+        vm.prank(curator);
+        poolManager.announceDeployCapital(vaultAddr, amount, recipient);
+
+        // Warp past timelock
+        uint256 delay = RWAVault(vaultAddr).deploymentDelay();
+        vm.warp(block.timestamp + delay + 1);
+
+        vm.prank(curator);
+        poolManager.executeDeployCapital(vaultAddr);
     }
 }

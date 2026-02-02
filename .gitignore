@@ -1,0 +1,21 @@
+# AI tool configurations
+.agents/
+.claude/
+.codex/
+.cursor/
+**/CLAUDE.md
+
+# Contract docs (kept in original repo)
+v2_without_proxy/docs/
+
+# Build artifacts
+cache/
+out/
+broadcast/
+
+# Environment
+.env
+.env.*
+
+# Node
+node_modules/

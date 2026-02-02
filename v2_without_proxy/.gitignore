@@ -1,0 +1,29 @@
+# Compiler files
+cache/
+out/
+
+# Ignores development broadcast logs
+/broadcast
+/broadcast/*/31337/
+
+# Docs
+docs/book
+
+# Dotenv file
+.env
+
+# Coverage
+lcov.info
+
+# Lock file
+foundry.lock
+
+# IDE / AI tools
+.agents/
+.claude/
+.codex/
+.cursor/
+.vscode/
+
+# Reports
+report.md

@@ -205,19 +205,6 @@
   },
   {
     "type": "function",
-    "name": "bufferBalance",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "cancelDeployCapital",
     "inputs": [],
     "outputs": [],
@@ -240,19 +227,6 @@
   {
     "type": "function",
     "name": "collectionEndTime",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "collectionStartTime",
     "inputs": [],
     "outputs": [
       {
@@ -355,47 +329,6 @@
   },
   {
     "type": "function",
-    "name": "deployCapital",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "recipient",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "deployCapitalWithRate",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "recipient",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "exchangeRate",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "deploymentDelay",
     "inputs": [],
     "outputs": [
@@ -424,32 +357,12 @@
         "internalType": "uint256"
       },
       {
-        "name": "deploymentRate",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "deployedKRW",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "deploymentTime",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
         "name": "returnedUSD",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "returnRate",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "returnedKRW",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -506,19 +419,6 @@
   {
     "type": "function",
     "name": "depositInterest",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "depositToBuffer",
     "inputs": [
       {
         "name": "amount",
@@ -609,32 +509,12 @@
             "internalType": "uint256"
           },
           {
-            "name": "deploymentRate",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "deployedKRW",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "deploymentTime",
             "type": "uint256",
             "internalType": "uint256"
           },
           {
             "name": "returnedUSD",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "returnRate",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "returnedKRW",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -698,29 +578,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "bufferBalance_",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "totalFxGainLoss_",
-        "type": "int256",
-        "internalType": "int256"
-      },
-      {
         "name": "deploymentCount",
         "type": "uint256",
         "internalType": "uint256"
-      },
-      {
-        "name": "interestMode_",
-        "type": "uint8",
-        "internalType": "enum RWAVault.InterestMode"
-      },
-      {
-        "name": "principalProtection_",
-        "type": "uint8",
-        "internalType": "enum RWAVault.PrincipalProtection"
       }
     ],
     "stateMutability": "view"
@@ -1089,11 +949,6 @@
         "name": "symbol_",
         "type": "string",
         "internalType": "string"
-      },
-      {
-        "name": "collectionStartTime_",
-        "type": "uint256",
-        "internalType": "uint256"
       },
       {
         "name": "collectionEndTime_",
@@ -1546,16 +1401,16 @@
   },
   {
     "type": "function",
-    "name": "priceOracle",
-    "inputs": [],
-    "outputs": [
+    "name": "recoverAssetDust",
+    "inputs": [
       {
-        "name": "",
+        "name": "recipient",
         "type": "address",
         "internalType": "address"
       }
     ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1570,6 +1425,24 @@
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "recoverETH",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address payable"
       }
     ],
     "outputs": [],
@@ -1641,29 +1514,6 @@
     "inputs": [
       {
         "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "returnCapitalWithRate",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "exchangeRate",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "deploymentIndex",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1774,19 +1624,6 @@
   },
   {
     "type": "function",
-    "name": "setPriceOracle",
-    "inputs": [
-      {
-        "name": "oracle",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setUserDepositCaps",
     "inputs": [
       {
@@ -1828,34 +1665,6 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "settings",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "interestMode",
-        "type": "uint8",
-        "internalType": "enum RWAVault.InterestMode"
-      },
-      {
-        "name": "principalProtection",
-        "type": "uint8",
-        "internalType": "enum RWAVault.PrincipalProtection"
-      },
-      {
-        "name": "bufferTargetRatio",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "maxFxLossRatio",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1969,19 +1778,6 @@
   },
   {
     "type": "function",
-    "name": "totalFxGainLoss",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "int256",
-        "internalType": "int256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "totalInterestPaid",
     "inputs": [],
     "outputs": [
@@ -2088,34 +1884,6 @@
   },
   {
     "type": "function",
-    "name": "updateSettings",
-    "inputs": [
-      {
-        "name": "interestMode_",
-        "type": "uint8",
-        "internalType": "enum RWAVault.InterestMode"
-      },
-      {
-        "name": "principalProtection_",
-        "type": "uint8",
-        "internalType": "enum RWAVault.PrincipalProtection"
-      },
-      {
-        "name": "bufferTargetRatio_",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "maxFxLossRatio_",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "whitelistEnabled",
     "inputs": [],
     "outputs": [
@@ -2158,19 +1926,6 @@
   },
   {
     "type": "function",
-    "name": "withdrawFromBuffer",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "withdrawalStartTime",
     "inputs": [],
     "outputs": [
@@ -2200,32 +1955,6 @@
       },
       {
         "name": "value",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "BufferDeposited",
-    "inputs": [
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "BufferWithdrawn",
-    "inputs": [
-      {
-        "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2374,18 +2103,6 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      },
-      {
-        "name": "rate",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "krwAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -2414,6 +2131,25 @@
       },
       {
         "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ETHRecovered",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2551,19 +2287,6 @@
   },
   {
     "type": "event",
-    "name": "PriceOracleUpdated",
-    "inputs": [
-      {
-        "name": "oracle",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "PrincipalTransferred",
     "inputs": [
       {
@@ -2608,24 +2331,6 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      },
-      {
-        "name": "rate",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "krwAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "fxGainLoss",
-        "type": "int256",
-        "indexed": false,
-        "internalType": "int256"
       }
     ],
     "anonymous": false
@@ -2701,37 +2406,6 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "SettingsUpdated",
-    "inputs": [
-      {
-        "name": "interestMode",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
-      },
-      {
-        "name": "principalProtection",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
-      },
-      {
-        "name": "bufferTargetRatio",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "maxFxLossRatio",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -2962,11 +2636,6 @@
   {
     "type": "error",
     "name": "CollectionNotEnded",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "CollectionNotStarted",
     "inputs": []
   },
   {

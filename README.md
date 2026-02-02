@@ -12,12 +12,12 @@
 
 This vault uses the **ERC-4626** standard. When you deposit USDC, you receive **share tokens**.
 
-| ⚠️ Warning | |
-|------------|---|
-| **Your shares = Your money** | Shares represent your principal + interest |
-| **Do NOT transfer shares** | You will lose access to your funds |
-| **Do NOT approve untrusted contracts** | They can steal your shares |
-| **Keep shares safe** | Lost shares = Lost funds (unrecoverable) |
+| ⚠️ Warning                             |                                            |
+| -------------------------------------- | ------------------------------------------ |
+| **Your shares = Your money**           | Shares represent your principal + interest |
+| **Do NOT transfer shares**             | You will lose access to your funds         |
+| **Do NOT approve untrusted contracts** | They can steal your shares                 |
+| **Keep shares safe**                   | Lost shares = Lost funds (unrecoverable)   |
 
 ```solidity
 // Check your shares anytime
@@ -31,13 +31,14 @@ uint256 myShares = vault.balanceOf(myWallet);
 
 ## Test Vault (Sepolia)
 
-| Contract | Address |
-|----------|---------|
+| Contract                   | Address                                      |
+| -------------------------- | -------------------------------------------- |
 | **Test Vault (Whitelist)** | `0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38` |
-| USDC (Mock) | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
-| VaultFactory | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
-| VaultRegistry | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |
-| PoolManager | `0xC0E1759038f01fB0E097DB5377b0b5BA8742A41D` |
+| USDC (Mock)                | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
+| VaultFactory               | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
+| VaultRegistry              | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |
+| PoolManager                | `0xC0E1759038f01fB0E097DB5377b0b5BA8742A41D` |
+| LoanRegistry               | `0x5829717A6BB63Ae1C45E98A77b07Bb25bb33DF49` |
 
 > **Note**: This is a test vault on Sepolia. USDC is a mock token for testing purposes.
 > **Collection Period**: Feb 4, 2026 11:00 AM ~ 3:00 PM KST
@@ -69,23 +70,23 @@ cast call 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 \
 ### Using ethers.js
 
 ```typescript
-const USDC_ADDRESS = '0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7';
+const USDC_ADDRESS = "0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7";
 
 // MockERC20 has a public mint function
 const mockUsdcAbi = [
-  'function mint(address to, uint256 amount) external',
-  'function balanceOf(address) view returns (uint256)'
+  "function mint(address to, uint256 amount) external",
+  "function balanceOf(address) view returns (uint256)",
 ];
 
 const usdc = new ethers.Contract(USDC_ADDRESS, mockUsdcAbi, signer);
 
 // Mint 10,000 USDC (6 decimals)
-const amount = ethers.parseUnits('10000', 6);
+const amount = ethers.parseUnits("10000", 6);
 await usdc.mint(signer.address, amount);
 
 // Check balance
 const balance = await usdc.balanceOf(signer.address);
-console.log('Balance:', ethers.formatUnits(balance, 6), 'USDC');
+console.log("Balance:", ethers.formatUnits(balance, 6), "USDC");
 ```
 
 ### Using web3.py
@@ -173,12 +174,12 @@ uint256 shares = vault.deposit(assets, receiver);
 
 ## Vault Phases
 
-| Phase | Value | Description |
-|-------|-------|-------------|
-| Collecting | 0 | Accepting deposits. Collection period active. |
-| Active | 1 | Funds deployed. Monthly interest accrues. |
-| Matured | 2 | Term ended. Principal + interest withdrawable. |
-| Defaulted | 3 | Loan defaulted. Partial recovery possible. |
+| Phase      | Value | Description                                    |
+| ---------- | ----- | ---------------------------------------------- |
+| Collecting | 0     | Accepting deposits. Collection period active.  |
+| Active     | 1     | Funds deployed. Monthly interest accrues.      |
+| Matured    | 2     | Term ended. Principal + interest withdrawable. |
+| Defaulted  | 3     | Loan defaulted. Partial recovery possible.     |
 
 ---
 
@@ -289,25 +290,27 @@ event PhaseChanged(uint8 oldPhase, uint8 newPhase);
 ### JavaScript/TypeScript (ethers.js v6)
 
 ```typescript
-import { ethers } from 'ethers';
-import vaultAbi from './RWAVault.json';
-import erc20Abi from './ERC20.json';
+import { ethers } from "ethers";
+import vaultAbi from "./RWAVault.json";
+import erc20Abi from "./ERC20.json";
 
-const provider = new ethers.JsonRpcProvider('https://ethereum-sepolia-rpc.publicnode.com');
+const provider = new ethers.JsonRpcProvider(
+  "https://ethereum-sepolia-rpc.publicnode.com",
+);
 const signer = new ethers.Wallet(PRIVATE_KEY, provider);
 
-const VAULT_ADDRESS = '0x90facD5C5b8b73567aCF49d6337805E762297c04';
-const USDC_ADDRESS = '0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7';
+const VAULT_ADDRESS = "0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38";
+const USDC_ADDRESS = "0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7";
 
 const vault = new ethers.Contract(VAULT_ADDRESS, vaultAbi, signer);
 const usdc = new ethers.Contract(USDC_ADDRESS, erc20Abi, signer);
 
 // Check vault status
 const phase = await vault.currentPhase();
-console.log('Phase:', phase); // 0 = Collecting
+console.log("Phase:", phase); // 0 = Collecting
 
 // Deposit 100 USDC
-const amount = ethers.parseUnits('100', 6); // USDC has 6 decimals
+const amount = ethers.parseUnits("100", 6); // USDC has 6 decimals
 
 // Step 1: Approve
 await usdc.approve(VAULT_ADDRESS, amount);
@@ -315,7 +318,7 @@ await usdc.approve(VAULT_ADDRESS, amount);
 // Step 2: Deposit
 const tx = await vault.deposit(amount, signer.address);
 await tx.wait();
-console.log('Deposited!', tx.hash);
+console.log("Deposited!", tx.hash);
 ```
 
 ### Python (web3.py)
@@ -326,7 +329,7 @@ import json
 
 w3 = Web3(Web3.HTTPProvider('https://ethereum-sepolia-rpc.publicnode.com'))
 
-VAULT_ADDRESS = '0x90facD5C5b8b73567aCF49d6337805E762297c04'
+VAULT_ADDRESS = '0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38'
 USDC_ADDRESS = '0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7'
 
 with open('RWAVault.json') as f:
@@ -350,19 +353,19 @@ print(f'Max deposit: {max_deposit / 1e6} USDC')
 
 ```bash
 # Check vault phase
-cast call 0x90facD5C5b8b73567aCF49d6337805E762297c04 "currentPhase()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast call 0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38 "currentPhase()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 
 # Check collection start time
-cast call 0x90facD5C5b8b73567aCF49d6337805E762297c04 "collectionStartTime()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast call 0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38 "collectionStartTime()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 
 # Check max deposit for address
-cast call 0x90facD5C5b8b73567aCF49d6337805E762297c04 "maxDeposit(address)" 0xYourAddress --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast call 0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38 "maxDeposit(address)" 0xYourAddress --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 
 # Approve USDC (requires private key)
-cast send 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 "approve(address,uint256)" 0x90facD5C5b8b73567aCF49d6337805E762297c04 1000000000 --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast send 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 "approve(address,uint256)" 0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38 1000000000 --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 
 # Deposit 1000 USDC
-cast send 0x90facD5C5b8b73567aCF49d6337805E762297c04 "deposit(uint256,address)" 1000000000 0xYourAddress --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast send 0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38 "deposit(uint256,address)" 1000000000 0xYourAddress --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 ```
 
 ### Solidity (Contract-to-Contract Integration)
@@ -415,11 +418,11 @@ contract YieldcoreIntegration {
 
 **Important Notes:**
 
-| Aspect | Explanation |
-|--------|-------------|
-| `msg.sender` in vault | Your contract address (not the original user) |
-| `receiver` parameter | Specifies who gets the shares → set to user's wallet |
-| After deposit | User owns shares directly, can claim interest & withdraw themselves |
+| Aspect                | Explanation                                                         |
+| --------------------- | ------------------------------------------------------------------- |
+| `msg.sender` in vault | Your contract address (not the original user)                       |
+| `receiver` parameter  | Specifies who gets the shares → set to user's wallet                |
+| After deposit         | User owns shares directly, can claim interest & withdraw themselves |
 
 **Flow Diagram:**
 
@@ -448,14 +451,15 @@ vault.redeem(shares, myWallet, myWallet);    // Redeem all shares
 >
 > Unlike `deposit()` which has a `receiver` parameter, the following functions use `msg.sender` to identify the user:
 >
-> | Function | Lookup | Transfer To |
-> |----------|--------|-------------|
-> | `claimInterest()` | `_depositInfos[msg.sender]` | `msg.sender` |
-> | `claimSingleMonth()` | `_depositInfos[msg.sender]` | `msg.sender` |
-> | `withdraw()` | `owner` param (must be `msg.sender` or approved) | `receiver` param |
-> | `redeem()` | `owner` param (must be `msg.sender` or approved) | `receiver` param |
+> | Function             | Lookup                                           | Transfer To      |
+> | -------------------- | ------------------------------------------------ | ---------------- |
+> | `claimInterest()`    | `_depositInfos[msg.sender]`                      | `msg.sender`     |
+> | `claimSingleMonth()` | `_depositInfos[msg.sender]`                      | `msg.sender`     |
+> | `withdraw()`         | `owner` param (must be `msg.sender` or approved) | `receiver` param |
+> | `redeem()`           | `owner` param (must be `msg.sender` or approved) | `receiver` param |
 >
 > **This means:**
+>
 > - ❌ A contract CANNOT claim interest on behalf of a user
 > - ❌ A contract CANNOT withdraw on behalf of a user (unless approved)
 > - ✅ User MUST call these functions directly from their wallet
@@ -477,13 +481,14 @@ if (whitelistEnabled && !_whitelist[receiver]) revert NotWhitelisted();
 
 ### What This Means for Contract Integration
 
-| Scenario | Whitelist Required? |
-|----------|---------------------|
-| User deposits directly from wallet | User must be whitelisted |
-| Contract deposits for user (`receiver` = user) | **User** must be whitelisted (not the contract) |
-| Contract deposits for itself (`receiver` = contract) | Contract must be whitelisted |
+| Scenario                                             | Whitelist Required?                             |
+| ---------------------------------------------------- | ----------------------------------------------- |
+| User deposits directly from wallet                   | User must be whitelisted                        |
+| Contract deposits for user (`receiver` = user)       | **User** must be whitelisted (not the contract) |
+| Contract deposits for itself (`receiver` = contract) | Contract must be whitelisted                    |
 
 **Example:**
+
 ```solidity
 // Your contract calls:
 vault.deposit(1000e6, userWallet);
@@ -524,6 +529,7 @@ vault.setAllocation(userAddress, 50000e6);  // 50,000 USDC allocation
 ```
 
 Check allocation status:
+
 ```solidity
 uint256 allocation = vault.getAllocatedCap(userAddress);      // Total allocation
 uint256 remaining = vault.getRemainingAllocation(userAddress); // Remaining amount
@@ -546,13 +552,13 @@ uint256 maxDeposit = vault.maxDeposit(userAddress);
 
 ## Files in This Repository
 
-| File | Description |
-|------|-------------|
-| `README.md` | Quick start guide and code examples |
-| `ARCHITECTURE.md` | **Contract structure, lifecycle, and share token model** |
-| `RWAVault.json` | Full Vault ABI (all functions) |
-| `RWAVault.minimal.json` | Minimal ABI (deposit functions only) |
-| `ERC20.json` | ERC-20 ABI for USDC approval + mint |
+| File                    | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `README.md`             | Quick start guide and code examples                      |
+| `ARCHITECTURE.md`       | **Contract structure, lifecycle, and share token model** |
+| `RWAVault.json`         | Full Vault ABI (all functions)                           |
+| `RWAVault.minimal.json` | Minimal ABI (deposit functions only)                     |
+| `ERC20.json`            | ERC-20 ABI for USDC approval + mint                      |
 
 ---
 

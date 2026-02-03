@@ -9,8 +9,8 @@
 
 | Item | Value |
 |------|-------|
-| **Vault Address** | `0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38` |
-| **Etherscan** | [View Contract](https://sepolia.etherscan.io/address/0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38) |
+| **Vault Address** | `0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E` |
+| **Etherscan** | [View Contract](https://sepolia.etherscan.io/address/0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E) |
 | **Asset (MockUSDC)** | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
 | **VaultFactory** | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
 | **VaultRegistry** | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |
@@ -41,12 +41,12 @@
 
 ---
 
-## Timeline (February 4, 2026 KST)
+## Timeline (February 3, 2026 KST)
 
 | Time (KST) | Event | Description |
 |------------|-------|-------------|
-| 11:00 AM | **Collection Start** | Deposits become available for whitelisted addresses |
-| 1:00 PM | Open Deposit | Whitelist disabled, anyone can deposit |
+| 12:00 PM | **Collection Start** | Deposits become available for whitelisted addresses |
+| 2:00 PM | Open Deposit | Whitelist disabled, anyone can deposit |
 | 3:00 PM | Collection End | Deposits closed |
 | 4:00 PM | Interest Start | Interest accrual begins |
 | 5:00 PM | Round 1 End | First interest period ends |
@@ -71,13 +71,13 @@ Before depositing, approve the vault to spend your USDC:
 ```
 Contract: 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7
 Function: approve(address spender, uint256 amount)
-- spender: 0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38 (vault address)
+- spender: 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E (vault address)
 - amount: Amount in USDC (6 decimals). e.g., 1000000000 = 1,000 USDC
 ```
 
-### 3. Deposit (after 11:00 AM KST)
+### 3. Deposit (after 12:00 PM KST)
 ```
-Contract: 0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38
+Contract: 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E
 Function: deposit(uint256 assets, address receiver)
 - assets: Amount in USDC (6 decimals). e.g., 1000000000 = 1,000 USDC
 - receiver: Your wallet address
@@ -101,9 +101,9 @@ Function: redeem(uint256 shares, address receiver, address owner)
 
 ## Important Notes
 
-- **Deposits are NOT available until 11:00 AM KST on Feb 4**
-- Whitelist period: 11:00 AM ~ 1:00 PM KST (only whitelisted addresses)
-- Open deposit period: 1:00 PM ~ 3:00 PM KST (anyone can deposit)
+- **Deposits are NOT available until 12:00 PM KST on Feb 3**
+- Whitelist period: 12:00 PM ~ 2:00 PM KST (only whitelisted addresses)
+- Open deposit period: 2:00 PM ~ 3:00 PM KST (anyone can deposit)
 - Minimum deposit is 1,000 USDC
 - Maximum deposit per user is 100,000 USDC
 - Interest is paid in 3 rounds (1 hour each)
@@ -135,6 +135,6 @@ Function: redeem(uint256 shares, address receiver, address owner)
 
 | Time | Action |
 |------|--------|
-| 1:00 PM | `setWhitelistEnabled(false)` - Open deposits to everyone |
+| 2:00 PM | `setWhitelistEnabled(false)` - Open deposits to everyone |
 | 3:00 PM+ | `activateVault()` - Transition to Active phase |
 | 7:00 PM+ | `matureVault()` - Transition to Matured phase |

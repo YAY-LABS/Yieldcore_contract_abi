@@ -320,11 +320,12 @@ function claimInterest() external {
 
 | Contract | Address |
 |----------|---------|
-| **Test Vault (Whitelist)** | `0x37F81330fF436db13Ed26e2FBb4d906D60CAfF38` |
+| **Test Vault (Whitelist)** | `0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E` |
 | USDC (Mock) | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
 | VaultFactory | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
 | VaultRegistry | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |
 | PoolManager | `0xC0E1759038f01fB0E097DB5377b0b5BA8742A41D` |
+| LoanRegistry | `0x5829717A6BB63Ae1C45E98A77b07Bb25bb33DF49` |
 
 ---
 

@@ -10,6 +10,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IRWAVault} from "../interfaces/IRWAVault.sol";
 import {RWAConstants} from "../libraries/RWAConstants.sol";
@@ -687,16 +688,18 @@ contract RWAVault is
         if (assets == 0) revert RWAErrors.ZeroAmount();
 
         // Calculate shares to burn proportionally
-        // shares = assets * info.shares / netValue
-        shares = (assets * info.shares) / netValue;
+        // [H-01 FIX] Round up shares to favor protocol (user burns more)
+        shares = Math.mulDiv(assets, info.shares, netValue, Math.Rounding.Ceil);
 
         if (shares == 0) revert RWAErrors.ZeroAmount();
 
         // Calculate proportional debt to deduct
-        uint256 debtToDeduct = (userDebt * shares) / info.shares;
+        // [H-01 FIX] Round down debt to favor user (less debt deducted)
+        uint256 debtToDeduct = Math.mulDiv(userDebt, shares, info.shares, Math.Rounding.Floor);
 
         // Calculate proportional principal reduction
-        uint256 principalReduction = (info.principal * shares) / info.shares;
+        // [H-01 FIX] Round down to favor protocol
+        uint256 principalReduction = Math.mulDiv(info.principal, shares, info.shares, Math.Rounding.Floor);
 
         // Update tracking
         info.principal -= principalReduction;
@@ -749,15 +752,16 @@ contract RWAVault is
         uint256 grossValue = convertToAssets(shares);
 
         // Calculate proportional debt to deduct
-        // debtToDeduct = totalUserDebt * (shares / totalUserShares)
+        // [H-01 FIX] Round down debt to favor user (less debt deducted)
         uint256 userDebt = _userClaimedInterest[owner];
-        uint256 debtToDeduct = (userDebt * shares) / info.shares;
+        uint256 debtToDeduct = Math.mulDiv(userDebt, shares, info.shares, Math.Rounding.Floor);
 
         // Net assets = gross value - debt already claimed
         assets = grossValue - debtToDeduct;
 
         // Calculate proportional principal reduction
-        uint256 principalReduction = (info.principal * shares) / info.shares;
+        // [H-01 FIX] Round down to favor protocol
+        uint256 principalReduction = Math.mulDiv(info.principal, shares, info.shares, Math.Rounding.Floor);
 
         // Update tracking
         info.principal -= principalReduction;
@@ -949,6 +953,13 @@ contract RWAVault is
         // For user-to-user transfers, enforce minimum amount to prevent rounding errors
         if (from != address(0) && to != address(0)) {
             if (amount < RWAConstants.MIN_SHARE_TRANSFER) revert RWAErrors.TransferTooSmall();
+
+            // [H-02 FIX] Prevent dust remaining after transfer
+            uint256 senderBalance = balanceOf(from);
+            uint256 remainingBalance = senderBalance - amount;
+            if (remainingBalance > 0 && remainingBalance < RWAConstants.MIN_SHARE_TRANSFER) {
+                revert RWAErrors.TransferLeavesTooDust();
+            }
         }
 
         // Store original shares before super._update changes balances
@@ -1141,7 +1152,9 @@ contract RWAVault is
     function setDeploymentDelay(uint256 newDelay) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newDelay >= 1 hours, "Delay too short");
         require(newDelay <= 7 days, "Delay too long");
+        uint256 oldDelay = deploymentDelay;
         deploymentDelay = newDelay;
+        emit DeploymentDelayUpdated(oldDelay, newDelay);
     }
 
     /// @notice Gets the pending deployment details
@@ -1416,22 +1429,6 @@ contract RWAVault is
         emit UserDepositCapsSet(minPerUser, maxPerUser);
     }
 
-    /// @notice Get user's remaining deposit allowance
-    /// @param user Address to check
-    /// @return remaining Amount user can still deposit (type(uint256).max if no cap)
-    function getUserDepositAllowance(address user) external view returns (uint256 remaining) {
-        if (maxDepositPerUser == 0) {
-            return type(uint256).max;
-        }
-
-        uint256 currentDeposit = _depositInfos[user].principal;
-        if (currentDeposit >= maxDepositPerUser) {
-            return 0;
-        }
-
-        return maxDepositPerUser - currentDeposit;
-    }
-
     // ============ Other Admin Functions ============
 
     /// @notice Sets the vault active status
@@ -1591,4 +1588,5 @@ contract RWAVault is
     event UserDepositCapsSet(uint256 minPerUser, uint256 maxPerUser);
     event CapAllocated(address indexed user, uint256 amount);
     event ETHRecovered(address indexed recipient, uint256 amount);
+    event DeploymentDelayUpdated(uint256 oldDelay, uint256 newDelay);
 }

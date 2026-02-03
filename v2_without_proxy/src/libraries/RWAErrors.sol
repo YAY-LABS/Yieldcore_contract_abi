@@ -22,6 +22,7 @@ library RWAErrors {
     error ExceedsUserDepositCap();
     error BelowUserMinDeposit();
     error TransferTooSmall();
+    error TransferLeavesTooDust();
 
     // ============ Phase Errors ============
     error InvalidPhase();

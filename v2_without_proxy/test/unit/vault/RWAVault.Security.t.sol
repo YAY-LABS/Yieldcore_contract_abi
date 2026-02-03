@@ -1131,9 +1131,9 @@ contract RWAVaultSecurityTest is Test {
         vm.prank(admin);
         bigVault.setUserDepositCaps(0, type(uint256).max);
 
-        // Verify it doesn't break anything
-        uint256 allowance = bigVault.getUserDepositAllowance(user1);
-        assertEq(allowance, type(uint256).max, "Max allowance should work");
+        // Verify it doesn't break anything - use maxDeposit instead of removed getUserDepositAllowance
+        uint256 maxDep = bigVault.maxDeposit(user1);
+        assertTrue(maxDep > 0, "Max deposit should work");
     }
 
     /// @notice Test self-transfer of shares

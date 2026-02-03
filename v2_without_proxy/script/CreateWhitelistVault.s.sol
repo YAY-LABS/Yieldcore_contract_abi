@@ -8,12 +8,12 @@ import {RWAVault} from "../src/vault/RWAVault.sol";
 
 /// @title CreateWhitelistVault
 /// @notice Creates a vault with whitelist and specific deposit caps
-/// @dev Timeline (Feb 4, 2026 KST):
-///      - Collection: now ~ 3pm (whitelist until 1pm, then open)
-///      - Interest Start: 4pm
-///      - 3 rounds x 1 hour: 4pm-5pm, 5pm-6pm, 6pm-7pm
-///      - Payments: 30min after each round (5:30pm, 6:30pm, 7:30pm)
-///      - Withdrawal: 7:30pm
+/// @dev Timeline (Feb 3, 2026 KST):
+///      - Collection: 1pm ~ 4pm (whitelist until 3pm, then open)
+///      - Interest Start: 5pm
+///      - 3 rounds x 1 hour: 5pm-6pm, 6pm-7pm, 7pm-8pm
+///      - Payments: 30min after each round (6:30pm, 7:30pm, 8:30pm)
+///      - Withdrawal: 8:30pm
 contract CreateWhitelistVault is Script {
     function run() external {
         // Load config
@@ -23,10 +23,10 @@ contract CreateWhitelistVault is Script {
         console2.log("=== Creating Whitelist Vault ===");
         console2.log("");
 
-        // Timestamps (Feb 4, 2026 KST)
-        uint256 collectionStartTime = 1770170400;  // 11am KST
-        uint256 collectionEndTime = 1770184800;    // 3pm KST
-        uint256 interestStartTime = 1770188400;    // 4pm KST
+        // Timestamps (Feb 3, 2026 KST) - delayed by 1 hour
+        uint256 collectionStartTime = 1770091200;  // 1pm KST
+        uint256 collectionEndTime = 1770102000;    // 4pm KST
+        uint256 interestStartTime = 1770105600;    // 5pm KST
 
         // 3 rounds x 1 hour
         uint256 termDuration = 3 hours;
@@ -34,18 +34,18 @@ contract CreateWhitelistVault is Script {
 
         // Period end dates (end of each 1-hour round)
         uint256[] memory periodEndDates = new uint256[](months);
-        periodEndDates[0] = 1770192000;  // 5pm KST (Round 1 end)
-        periodEndDates[1] = 1770195600;  // 6pm KST (Round 2 end)
-        periodEndDates[2] = 1770199200;  // 7pm KST (Round 3 end / Maturity)
+        periodEndDates[0] = 1770109200;  // 6pm KST (Round 1 end)
+        periodEndDates[1] = 1770112800;  // 7pm KST (Round 2 end)
+        periodEndDates[2] = 1770116400;  // 8pm KST (Round 3 end / Maturity)
 
         // Payment dates (30 min after each round ends)
         uint256[] memory paymentDates = new uint256[](months);
-        paymentDates[0] = 1770193800;   // 5:30pm KST
-        paymentDates[1] = 1770197400;   // 6:30pm KST
-        paymentDates[2] = 1770201000;   // 7:30pm KST
+        paymentDates[0] = 1770111000;   // 6:30pm KST
+        paymentDates[1] = 1770114600;   // 7:30pm KST
+        paymentDates[2] = 1770118200;   // 8:30pm KST
 
         // Withdrawal starts 30 min after maturity
-        uint256 withdrawalStartTime = 1770201000;  // 7:30pm KST
+        uint256 withdrawalStartTime = 1770118200;  // 8:30pm KST
 
         // Vault params
         string memory name = "YieldCore Whitelist Test";
@@ -55,15 +55,15 @@ contract CreateWhitelistVault is Script {
         uint256 maxCapacity = 1_000_000e6; // 1,000,000 USDC
 
         console2.log("=== Timeline (KST = UTC+9) ===");
-        console2.log("Collection Start:  Feb 4 11:00 (11am)");
-        console2.log("Collection End:    Feb 4 15:00 (3pm)");
-        console2.log("Interest Start:    Feb 4 16:00 (4pm)");
-        console2.log("Round 1 End:       Feb 4 17:00 (5pm)");
-        console2.log("Round 1 Payment:   Feb 4 17:30 (5:30pm)");
-        console2.log("Round 2 End:       Feb 4 18:00 (6pm)");
-        console2.log("Round 2 Payment:   Feb 4 18:30 (6:30pm)");
-        console2.log("Round 3 End:       Feb 4 19:00 (7pm) = Maturity");
-        console2.log("Withdrawal Start:  Feb 4 19:30 (7:30pm)");
+        console2.log("Collection Start:  Feb 3 13:00 (1pm)");
+        console2.log("Collection End:    Feb 3 16:00 (4pm)");
+        console2.log("Interest Start:    Feb 3 17:00 (5pm)");
+        console2.log("Round 1 End:       Feb 3 18:00 (6pm)");
+        console2.log("Round 1 Payment:   Feb 3 18:30 (6:30pm)");
+        console2.log("Round 2 End:       Feb 3 19:00 (7pm)");
+        console2.log("Round 2 Payment:   Feb 3 19:30 (7:30pm)");
+        console2.log("Round 3 End:       Feb 3 20:00 (8pm) = Maturity");
+        console2.log("Withdrawal Start:  Feb 3 20:30 (8:30pm)");
         console2.log("");
 
         console2.log("=== Vault Config ===");
@@ -125,8 +125,8 @@ contract CreateWhitelistVault is Script {
         console2.log("=== Setup Complete ===");
         console2.log("");
         console2.log("=== Admin Actions Required ===");
-        console2.log("1. At 1pm KST: call vault.setWhitelistEnabled(false) to open deposits");
-        console2.log("2. After 3pm KST: call vault.activateVault()");
-        console2.log("3. After 7pm KST: call vault.matureVault()");
+        console2.log("1. At 3pm KST: call vault.setWhitelistEnabled(false) to open deposits");
+        console2.log("2. After 4pm KST: call vault.activateVault()");
+        console2.log("3. After 8pm KST: call vault.matureVault()");
     }
 }

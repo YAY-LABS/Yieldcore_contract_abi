@@ -114,25 +114,6 @@ contract RWAVaultCoverageTest is BaseTest {
         assertEq(vault.getRemainingAllocation(user1), 30_000e6, "Remaining should decrease");
     }
 
-    function test_getUserDepositAllowance() public {
-        // Set user deposit caps
-        vm.prank(admin);
-        vault.setUserDepositCaps(100e6, 100_000e6);
-
-        // Get allowance
-        uint256 allowance = vault.getUserDepositAllowance(user1);
-        assertEq(allowance, 100_000e6, "Should return max per user");
-
-        // After deposit
-        vm.startPrank(user1);
-        usdc.approve(address(vault), 30_000e6);
-        vault.deposit(30_000e6, user1);
-        vm.stopPrank();
-
-        allowance = vault.getUserDepositAllowance(user1);
-        assertEq(allowance, 70_000e6, "Should return remaining allowance");
-    }
-
     function test_isActive() public {
         assertTrue(vault.isActive(), "Vault should be active by default");
 

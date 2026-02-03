@@ -5,8 +5,11 @@
 .cursor/
 **/CLAUDE.md
 
-# Contract docs (kept in original repo)
+# Contract docs and tests (kept in original repo)
+docs/
+test/
 v2_without_proxy/docs/
+v2_without_proxy/test/
 
 # Build artifacts
 cache/

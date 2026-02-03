@@ -320,7 +320,7 @@ function claimInterest() external {
 
 | Contract | Address |
 |----------|---------|
-| **Test Vault (Whitelist)** | `0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E` |
+| **Test Vault (Whitelist)** | `0x947857d81e2B3a18E9219aFbBF27118B679b37ef` |
 | USDC (Mock) | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
 | VaultFactory | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
 | VaultRegistry | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |

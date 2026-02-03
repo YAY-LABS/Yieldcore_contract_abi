@@ -33,7 +33,7 @@ uint256 myShares = vault.balanceOf(myWallet);
 
 | Contract                   | Address                                      |
 | -------------------------- | -------------------------------------------- |
-| **Test Vault (Whitelist)** | `0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E` |
+| **Test Vault (Whitelist)** | `0x947857d81e2B3a18E9219aFbBF27118B679b37ef` |
 | USDC (Mock)                | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
 | VaultFactory               | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
 | VaultRegistry              | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |
@@ -41,7 +41,7 @@ uint256 myShares = vault.balanceOf(myWallet);
 | LoanRegistry               | `0x5829717A6BB63Ae1C45E98A77b07Bb25bb33DF49` |
 
 > **Note**: This is a test vault on Sepolia. USDC is a mock token for testing purposes.
-> **Collection Period**: Feb 3, 2026 12:00 PM ~ 3:00 PM KST
+> **Collection Period**: Feb 3, 2026 1:00 PM ~ 4:00 PM KST
 
 ---
 
@@ -299,7 +299,7 @@ const provider = new ethers.JsonRpcProvider(
 );
 const signer = new ethers.Wallet(PRIVATE_KEY, provider);
 
-const VAULT_ADDRESS = "0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E";
+const VAULT_ADDRESS = "0x947857d81e2B3a18E9219aFbBF27118B679b37ef";
 const USDC_ADDRESS = "0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7";
 
 const vault = new ethers.Contract(VAULT_ADDRESS, vaultAbi, signer);
@@ -329,7 +329,7 @@ import json
 
 w3 = Web3(Web3.HTTPProvider('https://ethereum-sepolia-rpc.publicnode.com'))
 
-VAULT_ADDRESS = '0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E'
+VAULT_ADDRESS = '0x947857d81e2B3a18E9219aFbBF27118B679b37ef'
 USDC_ADDRESS = '0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7'
 
 with open('RWAVault.json') as f:
@@ -353,19 +353,19 @@ print(f'Max deposit: {max_deposit / 1e6} USDC')
 
 ```bash
 # Check vault phase
-cast call 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E "currentPhase()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast call 0x947857d81e2B3a18E9219aFbBF27118B679b37ef "currentPhase()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 
 # Check collection start time
-cast call 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E "collectionStartTime()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast call 0x947857d81e2B3a18E9219aFbBF27118B679b37ef "collectionStartTime()" --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 
 # Check max deposit for address
-cast call 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E "maxDeposit(address)" 0xYourAddress --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast call 0x947857d81e2B3a18E9219aFbBF27118B679b37ef "maxDeposit(address)" 0xYourAddress --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 
 # Approve USDC (requires private key)
-cast send 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 "approve(address,uint256)" 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E 1000000000 --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast send 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7 "approve(address,uint256)" 0x947857d81e2B3a18E9219aFbBF27118B679b37ef 1000000000 --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 
 # Deposit 1000 USDC
-cast send 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E "deposit(uint256,address)" 1000000000 0xYourAddress --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
+cast send 0x947857d81e2B3a18E9219aFbBF27118B679b37ef "deposit(uint256,address)" 1000000000 0xYourAddress --private-key $PRIVATE_KEY --rpc-url https://ethereum-sepolia-rpc.publicnode.com
 ```
 
 ### Solidity (Contract-to-Contract Integration)

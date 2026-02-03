@@ -9,8 +9,8 @@
 
 | Item | Value |
 |------|-------|
-| **Vault Address** | `0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E` |
-| **Etherscan** | [View Contract](https://sepolia.etherscan.io/address/0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E) |
+| **Vault Address** | `0x947857d81e2B3a18E9219aFbBF27118B679b37ef` |
+| **Etherscan** | [View Contract](https://sepolia.etherscan.io/address/0x947857d81e2B3a18E9219aFbBF27118B679b37ef) |
 | **Asset (MockUSDC)** | `0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7` |
 | **VaultFactory** | `0xd47Fc65B0bd112E0fe4deFBFeb26a5dd910ecF32` |
 | **VaultRegistry** | `0x384AaF500820EDf7F9965e1C621C0CA1BE95a9C0` |
@@ -45,16 +45,16 @@
 
 | Time (KST) | Event | Description |
 |------------|-------|-------------|
-| 12:00 PM | **Collection Start** | Deposits become available for whitelisted addresses |
-| 2:00 PM | Open Deposit | Whitelist disabled, anyone can deposit |
-| 3:00 PM | Collection End | Deposits closed |
-| 4:00 PM | Interest Start | Interest accrual begins |
-| 5:00 PM | Round 1 End | First interest period ends |
-| 5:30 PM | Round 1 Payment | First interest claimable |
-| 6:00 PM | Round 2 End | Second interest period ends |
-| 6:30 PM | Round 2 Payment | Second interest claimable |
-| 7:00 PM | Round 3 End (Maturity) | Final interest period ends |
-| 7:30 PM | Withdrawal Start | Principal + final interest withdrawable |
+| 1:00 PM | **Collection Start** | Deposits become available for whitelisted addresses |
+| 3:00 PM | Open Deposit | Whitelist disabled, anyone can deposit |
+| 4:00 PM | Collection End | Deposits closed |
+| 5:00 PM | Interest Start | Interest accrual begins |
+| 6:00 PM | Round 1 End | First interest period ends |
+| 6:30 PM | Round 1 Payment | First interest claimable |
+| 7:00 PM | Round 2 End | Second interest period ends |
+| 7:30 PM | Round 2 Payment | Second interest claimable |
+| 8:00 PM | Round 3 End (Maturity) | Final interest period ends |
+| 8:30 PM | Withdrawal Start | Principal + final interest withdrawable |
 
 ---
 
@@ -71,13 +71,13 @@ Before depositing, approve the vault to spend your USDC:
 ```
 Contract: 0xe505B02c8CdA0D01DD34a7F701C1268093B7bCf7
 Function: approve(address spender, uint256 amount)
-- spender: 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E (vault address)
+- spender: 0x947857d81e2B3a18E9219aFbBF27118B679b37ef (vault address)
 - amount: Amount in USDC (6 decimals). e.g., 1000000000 = 1,000 USDC
 ```
 
-### 3. Deposit (after 12:00 PM KST)
+### 3. Deposit (after 1:00 PM KST)
 ```
-Contract: 0x9727f90256C0FAbc7F10210bA019F4521CbfCB0E
+Contract: 0x947857d81e2B3a18E9219aFbBF27118B679b37ef
 Function: deposit(uint256 assets, address receiver)
 - assets: Amount in USDC (6 decimals). e.g., 1000000000 = 1,000 USDC
 - receiver: Your wallet address
@@ -89,7 +89,7 @@ Function: claimInterest()
 - Claims all available interest up to current period
 ```
 
-### 5. Withdraw (after 7:30 PM)
+### 5. Withdraw (after 8:30 PM)
 ```
 Function: redeem(uint256 shares, address receiver, address owner)
 - shares: Your share balance (check balanceOf)
@@ -101,14 +101,14 @@ Function: redeem(uint256 shares, address receiver, address owner)
 
 ## Important Notes
 
-- **Deposits are NOT available until 12:00 PM KST on Feb 3**
-- Whitelist period: 12:00 PM ~ 2:00 PM KST (only whitelisted addresses)
-- Open deposit period: 2:00 PM ~ 3:00 PM KST (anyone can deposit)
+- **Deposits are NOT available until 1:00 PM KST on Feb 3**
+- Whitelist period: 1:00 PM ~ 3:00 PM KST (only whitelisted addresses)
+- Open deposit period: 3:00 PM ~ 4:00 PM KST (anyone can deposit)
 - Minimum deposit is 1,000 USDC
 - Maximum deposit per user is 100,000 USDC
 - Interest is paid in 3 rounds (1 hour each)
 - Each interest payment is available 30 minutes after the round ends
-- Principal withdrawal is available 30 minutes after maturity (7:30 PM)
+- Principal withdrawal is available 30 minutes after maturity (8:30 PM)
 
 ---
 
@@ -135,6 +135,6 @@ Function: redeem(uint256 shares, address receiver, address owner)
 
 | Time | Action |
 |------|--------|
-| 2:00 PM | `setWhitelistEnabled(false)` - Open deposits to everyone |
-| 3:00 PM+ | `activateVault()` - Transition to Active phase |
-| 7:00 PM+ | `matureVault()` - Transition to Matured phase |
+| 3:00 PM | `setWhitelistEnabled(false)` - Open deposits to everyone |
+| 4:00 PM+ | `activateVault()` - Transition to Active phase |
+| 8:00 PM+ | `matureVault()` - Transition to Matured phase |

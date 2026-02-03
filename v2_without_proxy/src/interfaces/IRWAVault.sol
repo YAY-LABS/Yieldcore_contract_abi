@@ -72,6 +72,7 @@ interface IRWAVault is IERC4626 {
     function depositInterest(uint256 amount) external;
     function recoverERC20(address token, uint256 amount, address recipient) external;
     function recoverAssetDust(address recipient) external;
+    function recoverUnclaimedFunds(address recipient) external;
     function recoverETH(address payable recipient) external;
 
     // ============ View Functions ============

@@ -34,6 +34,7 @@ library RWAErrors {
     error PeriodEndDatesNotSet();
     error PaymentDatesNotSet();
     error ArrayLengthMismatch();
+    error TooEarly();
 
     // ============ Loan Errors ============
     error LoanNotFound();

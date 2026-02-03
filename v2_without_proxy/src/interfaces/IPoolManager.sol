@@ -50,6 +50,7 @@ interface IPoolManager {
     function triggerDefault(address vault) external;
     function recoverERC20(address vault, address token, uint256 amount, address recipient) external;
     function recoverAssetDust(address vault, address recipient) external;
+    function recoverUnclaimedFunds(address vault, address recipient) external;
     function recoverETH(address vault, address payable recipient) external;
 
     // ============ Loan Management ============

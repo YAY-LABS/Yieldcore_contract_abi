@@ -1475,6 +1475,22 @@ contract RWAVault is
         emit RWAEvents.TokenRecovered(asset(), recipient, dust);
     }
 
+    /// @notice Recovers unclaimed funds after grace period (30 days from withdrawal start)
+    /// @dev Only callable after withdrawalStartTime + 30 days
+    /// @param recipient The address to receive the unclaimed funds
+    function recoverUnclaimedFunds(address recipient) external onlyPoolManager {
+        if (recipient == address(0)) revert RWAErrors.ZeroAddress();
+        if (withdrawalStartTime == 0) revert RWAErrors.WithdrawalNotAvailable();
+        if (block.timestamp < withdrawalStartTime + 30 days) revert RWAErrors.TooEarly();
+
+        uint256 balance = IERC20(asset()).balanceOf(address(this));
+        if (balance == 0) revert RWAErrors.ZeroAmount();
+
+        IERC20(asset()).safeTransfer(recipient, balance);
+
+        emit UnclaimedFundsRecovered(recipient, balance);
+    }
+
     /// @notice Recovers ETH accidentally sent to the vault
     /// @dev Vault should never hold ETH, so this can be called anytime
     /// @param recipient The address to receive the ETH
@@ -1589,4 +1605,5 @@ contract RWAVault is
     event CapAllocated(address indexed user, uint256 amount);
     event ETHRecovered(address indexed recipient, uint256 amount);
     event DeploymentDelayUpdated(uint256 oldDelay, uint256 newDelay);
+    event UnclaimedFundsRecovered(address indexed recipient, uint256 amount);
 }

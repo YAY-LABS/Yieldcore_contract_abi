@@ -200,6 +200,19 @@ contract PoolManager is YieldCoreBase, IPoolManager {
         IRWAVault(vault).recoverETH(recipient);
     }
 
+    /// @notice Recovers unclaimed funds from a vault after grace period
+    /// @dev Only callable 30 days after withdrawal start time
+    /// @param vault The vault address
+    /// @param recipient The recipient address
+    function recoverUnclaimedFunds(address vault, address recipient)
+        external
+        nonReentrant
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRegisteredVault(vault)
+    {
+        IRWAVault(vault).recoverUnclaimedFunds(recipient);
+    }
+
     // ============ Loan Management ============
 
     /// @notice Registers a new loan (without deployment - use announceDeployCapital separately)
